@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Village Bucket Verification Sheet Generator — v-next</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --border: #d5dae2;
+    --text: #1a202c;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-hover: #234e7d;
+    --danger: #c53030;
+    --danger-hover: #9b2323;
+    --warn-bg: #fff8e1;
+    --warn-border: #f0c674;
+    --dup-bg: #fef3f2;
+    --dup-border: #f9b8b3;
+    --ok-bg: #edf7ee;
+    --ok-border: #a5d6a7;
+    --header-bg: #eef2f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 14px;
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .subtitle { color: var(--muted); margin-bottom: 20px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px; margin-bottom: 18px;
+  }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  label { font-weight: 600; margin-right: 6px; }
+  input[type=text], select {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px;
+    font-size: 14px; font-family: inherit;
+  }
+  input[type=file] { padding: 6px; }
+  button {
+    padding: 8px 16px; border: 1px solid var(--accent); background: var(--accent);
+    color: white; border-radius: 4px; cursor: pointer; font-size: 14px; font-family: inherit;
+  }
+  button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.secondary { background: white; color: var(--accent); }
+  button.secondary:hover { background: var(--header-bg); color: var(--accent-hover); }
+  button.danger { background: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+  button.small { padding: 4px 10px; font-size: 13px; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  th, td { padding: 6px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: var(--header-bg); font-weight: 600; }
+  tr.dup-row { background: var(--dup-bg); }
+  tr.nonhuman-row { background: var(--warn-bg); }
+  tr.deleted-row { opacity: 0.4; text-decoration: line-through; }
+  .file-config { margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; }
+  .file-config .row { margin-top: 6px; }
+  .tab-bar {
+    display: flex; gap: 4px; border-bottom: 2px solid var(--border);
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 8px 14px; background: transparent; color: var(--text);
+    border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0;
+    cursor: pointer; font-size: 13px;
+  }
+  .tab-btn:hover { background: var(--header-bg); }
+  .tab-btn.active { background: white; border-color: var(--border); border-bottom: 2px solid white; margin-bottom: -2px; color: var(--accent); font-weight: 600; }
+  .group-card {
+    border: 1px solid var(--border); border-radius: 6px; margin: 10px 0;
+    overflow: hidden;
+  }
+  .group-header {
+    background: var(--header-bg); padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none;
+  }
+  .group-header.nonhuman { background: var(--warn-bg); border-bottom: 1px solid var(--warn-border); }
+  .group-header.similar { background: var(--dup-bg); border-bottom: 1px solid var(--dup-border); }
+  .group-header .actions button { margin-left: 6px; }
+  .group-body { padding: 8px 12px; }
+  .group-body.collapsed { display: none; }
+  .stats {
+    display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0;
+    font-size: 13px; color: var(--muted);
+  }
+  .stat-pill {
+    background: var(--header-bg); padding: 4px 10px; border-radius: 999px;
+  }
+  .stat-pill strong { color: var(--text); }
+  .section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .section-header h3 { margin: 0; font-size: 16px; }
+  .checkbox-cell { width: 32px; text-align: center; }
+  .nowrap { white-space: nowrap; }
+  .small-muted { color: var(--muted); font-size: 12px; }
+  .status-log {
+    background: #f8fafc; border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 12px; font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 12px; max-height: 200px; overflow-y: auto;
+    margin-top: 12px; white-space: pre-wrap;
+  }
+  .toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
+    padding: 10px; background: var(--header-bg); border-radius: 6px;
+  }
+  .master-actions { margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+  .level-btn {
+    padding: 6px 14px; background: white; color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+    font-size: 13px; font-family: inherit;
+  }
+  .level-btn:hover { background: var(--header-bg); }
+  .level-btn.active {
+    background: var(--accent); color: white; border-color: var(--accent); font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<h1>Village Verification Sheet Generator</h1>
+<div class="subtitle">
+  Handles two input formats: <strong>AgriStack Village Wise Bucket Data</strong> (BucketId/OwnerName/…) and <strong>Aadhaar Collection sheet</strong> (S.No/Khewat/Khata/Khasra/Name/Parentage/…). Format is auto-detected per file. Fuzzy name matching, non-human entity grouping, and flexible per-row deletion.
+</div>
+
+<!-- ================= STEP 1: UPLOAD ================= -->
+<div class="card">
+  <h3 style="margin-top:0">1. Upload files</h3>
+  <div class="row">
+    <input type="file" id="file-input" multiple accept=".xlsx,.xls">
+    <span class="small-muted">Select one or more "Village Wise Bucket Data" .xlsx files.</span>
+  </div>
+  <div id="file-configs"></div>
+</div>
+
+<!-- ================= STEP 2: SETTINGS ================= -->
+<div class="card" id="settings-card" style="display:none;">
+  <h3 style="margin-top:0">2. Detection settings</h3>
+  <div class="row">
+    <label>Fuzzy grouping:</label>
+    <input type="range" id="fuzzy-slider" min="0" max="10" step="1" value="0" style="width:260px;">
+    <span id="fuzzy-slider-val" style="min-width:70px; display:inline-block;"><strong>0</strong> (off)</span>
+    <span class="small-muted">0 = no grouping. Slide right for more tolerance. Below each group card you'll see similarity scores so you can see why the tool clustered rows.</span>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <label><input type="checkbox" id="detect-nonhuman" checked> Detect non-human entities</label>
+    <label style="margin-left:16px;"><input type="checkbox" id="cluster-fuzzy" checked> Cluster fuzzy-similar names</label>
+  </div>
+  <div class="row" style="margin-top:12px;">
+    <button id="process-btn">Process files</button>
+    <button class="secondary" id="reset-btn">Reset</button>
+  </div>
+  <div id="status-log" class="status-log" style="display:none;"></div>
+</div>
+
+<!-- ================= STEP 3: REVIEW ================= -->
+<div id="review-section" style="display:none;">
+  <div class="card">
+    <h3 style="margin-top:0">3. Review and prune</h3>
+    <div id="tab-bar" class="tab-bar"></div>
+    <div id="tab-content"></div>
+  </div>
+</div>
+
+<!-- ================= STEP 4: DOWNLOAD ================= -->
+<div id="download-section" class="card" style="display:none;">
+  <h3 style="margin-top:0">4. Download</h3>
+  <div class="row">
+    <button id="dl-current-xlsx">Download current village (Excel)</button>
+    <button id="dl-current-pdf" class="secondary">Download current village (PDF)</button>
+    <button id="dl-all-zip" class="secondary" style="margin-left:20px;">Download all villages (ZIP)</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const STATE = {
+  files: [],          // [{file, tehsil, village}]
+  villages: [],       // [{key, tehsil, village, bucketId?, rows: [personRow], nonHumanGroups: [], similarGroups: []}]
+  activeTab: 0,
+};
+const TEHSILS = ['Bandipora','Sumbal','Aloosa','Hajin','Kaloosa','Ajas','Gurez','Tulail'];
+
+/* ============================================================
+   NON-HUMAN PATTERNS
+   ============================================================ */
+const NON_HUMAN_PATTERNS = [
+  { key: 'shamilat',    label: 'Shamilat / Common Land',
+    rx: /\bsham[il]{1,2}[la]{1,2}t\b/i },
+  { key: 'sarkar',      label: 'Sarkar / Government / State',
+    rx: /\bsarkar\b|\bgovern?ment\b|\bstate\b|\bgovt\b/i },
+  { key: 'maqbooza',    label: 'Maqbooza (Malikaan / Mahkama)',
+    rx: /\bma[kq]b[ou]+(?:z[ae]h?|h)\b/i },
+  { key: 'matwaqah',    label: 'Matwaqah / Matroka',
+    rx: /\bmat[wr]?aq?ah?\b|\bmatr?[ou]ka\b/i },
+  { key: 'khudkasht',   label: 'Khud Kasht',
+    rx: /\bkhud[\s-]?kasht\b/i },
+  { key: 'sharaam',     label: 'Shara Aam / Common Path',
+    rx: /\bsha+r+h?[\s-]?e?[\s-]?a[am]+\b/i },
+  { key: 'wakf',        label: 'Wakf / Trust / Committee / Department',
+    rx: /\bwa[kq]f\b|\btrust\b|\bcommittee\b|\bmahkama+\b|\bdepart?ment\b|\bdept\b|\bboard\b/i },
+  { key: 'masjid',      label: 'Masjid / Religious Institution',
+    rx: /\bmasjid\b|\bmosque\b|\bdargah\b|\bziarat\b/i },
+  { key: 'ahalislam',   label: 'Ahal-e-Islam / Community Land',
+    rx: /\bah[al]{1,2}[iy]?\s+(?:islam|assalam|salaam?)\b|\bahli\s+islam\b/i },
+  { key: 'charai',      label: 'Charai / Grazing Land',
+    rx: /\bchar[aeiy]{2,6}\b/i },
+  { key: 'mufeedaam',   label: 'Mufeed Aam / Public Utility',
+    rx: /\bmuf[ie]+d\b/i },
+  { key: 'aabadi',      label: 'Aabadi / Habitation',
+    rx: /\ba+badi\b/i },
+  { key: 'nil',         label: 'NIL / Empty / N/A',
+    rx: /^(nil|null|none|na|n\/a|#n\/a|-+|\s*)$/i },
+];
+
+function detectNonHuman(name, parentage) {
+  const combined = `${name || ''} ${parentage || ''}`.trim();
+  for (const p of NON_HUMAN_PATTERNS) {
+    if (p.rx.test(combined)) return p;
+    // for the NIL pattern also check individually
+    if (p.key === 'nil') {
+      if (p.rx.test((name||'').trim()) && p.rx.test((parentage||'').trim())) return p;
+    }
+  }
+  // Additional: if BOTH name and parentage are nil/empty → nil
+  if (isMissing(name) && isMissing(parentage)) {
+    return NON_HUMAN_PATTERNS.find(p => p.key === 'nil');
+  }
+  return null;
+}
+
+function isMissing(v) {
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim().toUpperCase();
+  return s === '' || s === 'NULL' || s === 'N/A' || s === 'NA' || s === 'NONE' || s === '#N/A' || s === '-';
+}
+
+/* ============================================================
+   NAME NORMALISATION + FUZZY MATCH
+   ============================================================ */
+function normalize(s) {
+  if (!s) return '';
+  let x = String(s);
+  // Strip Unicode weirdness: zero-width joiners, BOM, non-breaking / ideographic spaces
+  x = x.replace(/[\u200B-\u200D\uFEFF]/g, '');
+  x = x.replace(/[\u00A0\u3000]/g, ' ');
+  x = x.toLowerCase().trim();
+  // strip punctuation, keep spaces
+  x = x.replace(/[^\w\s]/g, ' ');
+  // expand common J&K abbreviations
+  const REPL = [
+    [/\bmoh?d\b\.?/g, 'mohammad'],
+    [/\bmuhd\b\.?/g, 'mohammad'],
+    [/\bmohammed\b/g, 'mohammad'],
+    [/\bmuhammad\b/g, 'mohammad'],
+    [/\bmuhammed\b/g, 'mohammad'],
+    [/\bgh\b\.?/g, 'ghulam'],
+    [/\bgulam\b/g, 'ghulam'],
+    [/\bghulaam\b/g, 'ghulam'],
+    [/\babd\b\.?/g, 'abdul'],
+    [/\bab\b\.?/g, 'abdul'],
+    [/\babdool\b/g, 'abdul'],
+    [/\brehman\b/g, 'rahman'],
+    [/\brehmaan\b/g, 'rahman'],
+    [/\brehamaan\b/g, 'rahman'],
+    [/\bahmed\b/g, 'ahmad'],
+    [/\bbasheer\b/g, 'bashir'],
+    [/\bhusa?in\b/g, 'hussain'],
+    [/\bhussein\b/g, 'hussain'],
+    [/\bshabir\b/g, 'shabbir'],
+    [/\bjabar\b/g, 'jabbar'],
+    [/\bmehdi\b/g, 'mahdi'],
+    // Kashmiri "Mrs." honorific — many spellings all mean the same word
+    [/\b(mst|musmat|masmat|mussamat|musamat|mussammat|mosammat)\b\.?/g, 'musammat'],
+  ];
+  for (const [rx, rep] of REPL) x = x.replace(rx, rep);
+  // strip relation markers
+  x = x.replace(/\bs\s*o\b|\bd\s*o\b|\bw\s*o\b|\bson\s+of\b|\bdaughter\s+of\b|\bwife\s+of\b/g, ' ');
+  // collapse whitespace
+  x = x.replace(/\s+/g, ' ').trim();
+  return x;
+}
+
+// Jaro similarity
+function jaro(s1, s2) {
+  if (s1 === s2) return 1;
+  const len1 = s1.length, len2 = s2.length;
+  if (!len1 || !len2) return 0;
+  const matchDist = Math.max(0, Math.floor(Math.max(len1, len2) / 2) - 1);
+  const m1 = new Array(len1).fill(false);
+  const m2 = new Array(len2).fill(false);
+  let matches = 0;
+  for (let i = 0; i < len1; i++) {
+    const start = Math.max(0, i - matchDist);
+    const end = Math.min(i + matchDist + 1, len2);
+    for (let j = start; j < end; j++) {
+      if (m2[j]) continue;
+      if (s1[i] !== s2[j]) continue;
+      m1[i] = true; m2[j] = true; matches++; break;
+    }
+  }
+  if (!matches) return 0;
+  let t = 0, k = 0;
+  for (let i = 0; i < len1; i++) {
+    if (!m1[i]) continue;
+    while (!m2[k]) k++;
+    if (s1[i] !== s2[k]) t++;
+    k++;
+  }
+  t /= 2;
+  return ((matches / len1) + (matches / len2) + ((matches - t) / matches)) / 3;
+}
+
+// Jaro-Winkler (bonus for shared prefix, up to 4 chars)
+function jaroWinkler(s1, s2) {
+  const j = jaro(s1, s2);
+  let prefix = 0;
+  const maxP = Math.min(4, s1.length, s2.length);
+  for (let i = 0; i < maxP; i++) {
+    if (s1[i] === s2[i]) prefix++; else break;
+  }
+  return j + prefix * 0.1 * (1 - j);
+}
+
+function similarity(name1, par1, name2, par2) {
+  const nameSim = jaroWinkler(name1, name2);
+  const parSim  = jaroWinkler(par1, par2);
+  // Both must clear the threshold — weight them equally
+  return { nameSim, parSim, min: Math.min(nameSim, parSim) };
+}
+
+// Levenshtein edit distance — counts single-char insertions, deletions, substitutions
+function levenshtein(a, b) {
+  const la = a.length, lb = b.length;
+  if (!la) return lb;
+  if (!lb) return la;
+  let prev = new Array(lb + 1), curr = new Array(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= lb; j++) {
+      const cost = a[i-1] === b[j-1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j-1] + 1, prev[j-1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[lb];
+}
+// Length-normalized Levenshtein similarity: 1 = identical, 0 = completely different
+function levSim(a, b) {
+  if (!a && !b) return 1;
+  if (!a || !b) return 0;
+  const maxLen = Math.max(a.length, b.length);
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
+// Token-wise similarity using Levenshtein.
+// Better than Jaro-Winkler for this use case because it doesn't give a prefix bonus
+// that inflates the score of pairs like "raham" vs "rehman" (shared 'r' → JW 0.914, but LD 0.667).
+function tokenSim(a, b) {
+  const ta = (a || '').split(' ').filter(Boolean);
+  const tb = (b || '').split(' ').filter(Boolean);
+  if (!ta.length || !tb.length) return 0;
+
+  const [shorter, longer] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  const used = new Set();
+  const pairScores = [];
+  for (const s of shorter) {
+    let bestIdx = -1, bestScore = 0;
+    for (let i = 0; i < longer.length; i++) {
+      if (used.has(i)) continue;
+      const j = levSim(s, longer[i]);
+      if (j > bestScore) { bestScore = j; bestIdx = i; }
+    }
+    if (bestIdx >= 0) used.add(bestIdx);
+    pairScores.push(bestScore);
+  }
+  const minPair = Math.min(...pairScores);
+  const unmatched = longer.length - shorter.length;
+  return Math.max(0, minPair - 0.05 * unmatched);
+}
+
+/* ============================================================
+   READ EXCEL
+   ============================================================ */
+function readXlsx(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        resolve(rows);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Detect input file format. Returns {format, headerRow, cols}.
+// - 'bucket'  = AgriStack Village Wise Bucket Data (BucketId/OwnerName/IdentifierName/SurveyNumber/SubSurveyNumber)
+//               OR a Verification-sheet re-upload (S.No/Bucket ID/Name/Parentage/Survey Nos/…)
+// - 'aadhaar' = Aadhaar Collection sheet (S.NO./KHEWAT/KHATA/KHASRA/NAME/PARENTAGE/TYPE/STATUS/REASON)
+//
+// Header row can sit anywhere in the first 5 rows — verification sheets have a title on row 1
+// and a stats line on row 2, so headers land on row 3.
+function detectFormat(rawRows) {
+  const normHeader = row => (row || []).map(c => String(c || '').trim().toLowerCase().replace(/[\s_.-]/g, ''));
+
+  const bucketRawSet   = new Set(['bucketid','ownername','identifiername','surveynumber','subsurveynumber']);
+  const bucketVerifSet = new Set(['bucketid','name','parentage','surveynos','surveynumbers','sno','cluster','rows']);
+  const aadhaarKeySet  = new Set(['khewat','khata','khasra']); // strict aadhaar-only signals
+  const aadhaarSharedSet = new Set(['sno','name','parentage','type','status','reason']);
+
+  const hits = (h, set) => h.filter(x => set.has(x)).length;
+
+  const scanTo = Math.min(5, rawRows.length);
+
+  // Pass 1: raw bucket (strongest — original AgriStack format)
+  for (let i = 0; i < scanTo; i++) {
+    const r = normHeader(rawRows[i]);
+    if (hits(r, bucketRawSet) >= 2) {
+      return { format: 'bucket', headerRow: i, cols: mapBucketCols(rawRows[i]) };
+    }
+  }
+  // Pass 2: aadhaar (needs at least one strict signal + shared indicators)
+  for (let i = 0; i < scanTo; i++) {
+    const r = normHeader(rawRows[i]);
+    if (hits(r, aadhaarKeySet) >= 2 && hits(r, aadhaarSharedSet) >= 2) {
+      return { format: 'aadhaar', headerRow: i, cols: mapAadhaarCols(rawRows[i]) };
+    }
+  }
+  // Pass 3: verification-sheet re-upload (bucket family, different header names)
+  for (let i = 0; i < scanTo; i++) {
+    const r = normHeader(rawRows[i]);
+    if (hits(r, bucketVerifSet) >= 3) {
+      return { format: 'bucket', headerRow: i, cols: mapBucketCols(rawRows[i]) };
+    }
+  }
+  // Fallback: assume raw bucket at row 0 with positional columns
+  return { format: 'bucket', headerRow: 0, cols: mapBucketCols(rawRows[0]) };
+}
+
+function mapBucketCols(headerRow) {
+  const map = { bucketId: -1, ownerName: -1, identifierName: -1, surveyNumber: -1, subSurveyNumber: -1 };
+  (headerRow || []).forEach((h, i) => {
+    const k = String(h || '').trim().toLowerCase().replace(/[\s_.-]/g, '');
+    if (k === 'bucketid')                                         map.bucketId       = i;
+    else if (k === 'ownername' || k === 'name')                   { if (map.ownerName === -1)       map.ownerName       = i; }
+    else if (k === 'identifiername' || k === 'parentage')         { if (map.identifierName === -1)  map.identifierName  = i; }
+    else if (k === 'surveynumber' || k === 'surveynos' || k === 'surveynumbers') { if (map.surveyNumber === -1) map.surveyNumber = i; }
+    else if (k === 'subsurveynumber')                             map.subSurveyNumber = i;
+  });
+  // Only fall back to positional guesses if NO header matched — a partial match should not
+  // silently drag the missing columns into the wrong positions (the bug that shifted every
+  // verification-file column by one).
+  const anyMatch = map.bucketId !== -1 || map.ownerName !== -1 || map.identifierName !== -1 || map.surveyNumber !== -1;
+  if (!anyMatch) {
+    map.bucketId = 0; map.ownerName = 1; map.identifierName = 2;
+    map.surveyNumber = 3; map.subSurveyNumber = 4;
+  }
+  return map;
+}
+
+function mapAadhaarCols(headerRow) {
+  const map = {};
+  (headerRow || []).forEach((h, i) => {
+    const k = String(h || '').trim().toLowerCase().replace(/[\s_.-]/g, '');
+    if (k === 'sno') map.sNo = i;
+    if (k === 'khewat') map.khewat = i;
+    if (k === 'khata') map.khata = i;
+    if (k === 'khasra') map.khasra = i;
+    if (k === 'name') map.name = i;
+    if (k === 'parentage') map.parentage = i;
+    if (k === 'type') map.type = i;
+    if (k === 'status') map.status = i;
+    if (k === 'reason') map.reason = i;
+  });
+  // Fallback positions matching the Reshipora sample
+  if (map.sNo === undefined) map.sNo = 0;
+  if (map.khewat === undefined) map.khewat = 1;
+  if (map.khata === undefined) map.khata = 2;
+  if (map.khasra === undefined) map.khasra = 3;
+  if (map.name === undefined) map.name = 4;
+  if (map.parentage === undefined) map.parentage = 5;
+  if (map.type === undefined) map.type = 6;
+  if (map.status === undefined) map.status = 7;
+  if (map.reason === undefined) map.reason = 8;
+  return map;
+}
+
+/* ============================================================
+   PROCESS ONE VILLAGE (routes to bucket or aadhaar processor)
+   ============================================================ */
+function processVillage(fileEntry, rawRows) {
+  if (!rawRows.length) return null;
+  const fmt = detectFormat(rawRows);
+  if (fmt.format === 'aadhaar') return processAadhaarFile(fileEntry, rawRows, fmt);
+  return processBucketFile(fileEntry, rawRows, fmt);
+}
+
+// ---------- Bucket format: many rows per person → one person per (name, parentage), surveys aggregated ----------
+function processBucketFile(fileEntry, rawRows, fmt) {
+  const { file, tehsil, village } = fileEntry;
+  const cols = fmt.cols;
+  const hasSubSurvey = cols.subSurveyNumber !== undefined && cols.subSurveyNumber !== -1;
+  const records = [];
+  for (let r = fmt.headerRow + 1; r < rawRows.length; r++) {
+    const row = rawRows[r];
+    if (!row || row.every(c => c === '' || c === null)) continue;
+    records.push({
+      bucketId:  String(row[cols.bucketId] || '').trim(),
+      name:      isMissing(row[cols.ownerName])      ? '' : String(row[cols.ownerName]).trim(),
+      parentage: isMissing(row[cols.identifierName]) ? '' : String(row[cols.identifierName]).trim(),
+      survey:    String(row[cols.surveyNumber] || '').trim(),
+      subSurvey: hasSubSurvey ? String(row[cols.subSurveyNumber] || '').trim() : '',
+    });
+  }
+  // Dedup by (name + parentage) case-sensitive, NULL falls back to BucketId
+  const groups = new Map();
+  for (const rec of records) {
+    const key = (!rec.name && !rec.parentage) ? 'BID::' + rec.bucketId : rec.name + '||' + rec.parentage;
+    if (!groups.has(key)) {
+      groups.set(key, { bucketId: rec.bucketId, name: rec.name, parentage: rec.parentage, surveyPairs: new Set(), rowCount: 0 });
+    }
+    const g = groups.get(key);
+    if (hasSubSurvey) {
+      // Raw AgriStack bucket file: SurveyNumber + SubSurveyNumber → survey/subSurvey pair
+      let sn = rec.survey;
+      if (rec.subSurvey && rec.subSurvey !== '*' && rec.subSurvey !== '') sn = `${rec.survey}/${rec.subSurvey}`;
+      if (sn) g.surveyPairs.add(sn);
+    } else {
+      // Verification-file re-upload: Survey Nos is already a comma-separated merged list
+      const parts = rec.survey.split(/[,;]\s*/).map(s => s.trim()).filter(Boolean);
+      for (const s of parts) g.surveyPairs.add(s);
+    }
+    g.rowCount++;
+  }
+  const persons = [];
+  let idx = 0;
+  for (const g of groups.values()) {
+    idx++;
+    persons.push({
+      id: `p${idx}`,
+      bucketId: g.bucketId,
+      name: g.name,
+      parentage: g.parentage,
+      surveys: [...g.surveyPairs].sort((a,b) => (parseFloat(a.split('/')[0])||0) - (parseFloat(b.split('/')[0])||0)),
+      rowCount: g.rowCount,
+      deleted: false,
+    });
+  }
+  return {
+    key: `${tehsil}__${village}`, tehsil, village, fileName: file.name,
+    format: 'bucket',
+    persons, nonHumanGroups: [], similarGroups: [],
+  };
+}
+
+// ---------- Aadhaar Collection format: each row is already one person (per khasra), no dedup pass ----------
+function processAadhaarFile(fileEntry, rawRows, fmt) {
+  const { file, tehsil, village } = fileEntry;
+  const cols = fmt.cols;
+  const persons = [];
+  let idx = 0;
+  for (let r = fmt.headerRow + 1; r < rawRows.length; r++) {
+    const row = rawRows[r];
+    if (!row || row.every(c => c === '' || c === null)) continue;
+    // Skip a stray footer row that repeats the header
+    const nameCell = String(row[cols.name] || '').trim();
+    if (nameCell.toLowerCase() === 'name') continue;
+    idx++;
+    persons.push({
+      id: `p${idx}`,
+      name: nameCell,
+      parentage: String(row[cols.parentage] || '').trim(),
+      khewat:    row[cols.khewat] != null ? String(row[cols.khewat]).trim() : '',
+      khata:     row[cols.khata]  != null ? String(row[cols.khata]).trim()  : '',
+      khasra:    row[cols.khasra] != null ? String(row[cols.khasra]).trim() : '',
+      type:      String(row[cols.type]   || '').trim(),
+      status:    String(row[cols.status] || '').trim(),
+      reason:    String(row[cols.reason] || '').trim(),
+      deleted: false,
+    });
+  }
+  return {
+    key: `${tehsil}__${village}`, tehsil, village, fileName: file.name,
+    format: 'aadhaar',
+    persons, nonHumanGroups: [], similarGroups: [],
+  };
+}
+
+/* ============================================================
+   CLUSTER: non-human + fuzzy similar
+   ============================================================ */
+function buildGroups(village, opts) {
+  const { doNonHuman, doFuzzy, threshold } = opts;
+
+  // 1) Non-human detection
+  const nhBuckets = new Map();
+  if (doNonHuman) {
+    for (const p of village.persons) {
+      const hit = detectNonHuman(p.name, p.parentage);
+      if (hit) {
+        if (!nhBuckets.has(hit.key)) nhBuckets.set(hit.key, { key: hit.key, label: hit.label, members: [] });
+        nhBuckets.get(hit.key).members.push(p);
+        p.nonHumanKey = hit.key;
+      }
+    }
+  }
+  village.nonHumanGroups = [...nhBuckets.values()].sort((a,b)=>b.members.length - a.members.length);
+
+  // 2) Fuzzy similar clustering (skip persons already flagged as non-human)
+  const similarGroups = [];
+  if (doFuzzy) {
+    const eligible = village.persons
+      .filter(p => !p.nonHumanKey)
+      .map(p => ({ p, nName: normalize(p.name), nPar: normalize(p.parentage) }))
+      .filter(x => x.nName || x.nPar);  // skip totally empty
+
+    // Union-Find
+    const parent = new Map();
+    eligible.forEach(x => parent.set(x.p.id, x.p.id));
+    function find(a) { while (parent.get(a) !== a) { parent.set(a, parent.get(parent.get(a))); a = parent.get(a); } return a; }
+    function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); }
+
+    // Full pairwise comparison — no blocking, so cross-first-letter matches like
+    // "raham" vs "abdul raham" or "lone" prefix variants aren't missed
+    for (let i = 0; i < eligible.length; i++) {
+      for (let j = i + 1; j < eligible.length; j++) {
+        const a = eligible[i], b = eligible[j];
+        const nameSim = tokenSim(a.nName, b.nName);
+        if (nameSim < threshold) continue;
+        // parentage: if one side empty, only pair when names are near-perfect
+        if (!a.nPar || !b.nPar) {
+          if (nameSim < 0.97) continue;
+        } else {
+          const parSim = tokenSim(a.nPar, b.nPar);
+          if (parSim < threshold) continue;
+        }
+        union(a.p.id, b.p.id);
+      }
+    }
+    const clusters = new Map();
+    for (const x of eligible) {
+      const root = find(x.p.id);
+      if (!clusters.has(root)) clusters.set(root, []);
+      clusters.get(root).push(x);
+    }
+    for (const members of clusters.values()) {
+      if (members.length > 1) {
+        // representative = first member; compute pairwise sim vs rep for each member
+        const rep = members[0];
+        for (const x of members) {
+          x.p.simToRep = {
+            name: tokenSim(rep.nName, x.nName),
+            par:  tokenSim(rep.nPar, x.nPar),
+          };
+        }
+        similarGroups.push({ members: members.map(x => x.p) });
+      }
+    }
+    // sort largest groups first
+    similarGroups.sort((a,b)=> b.members.length - a.members.length);
+  }
+  village.similarGroups = similarGroups;
+}
+
+/* ============================================================
+   UI: FILE CONFIG LIST
+   ============================================================ */
+document.getElementById('file-input').addEventListener('change', e => {
+  const files = [...e.target.files];
+  STATE.files = files.map(f => ({
+    file: f,
+    tehsil: TEHSILS[0],
+    village: f.name.replace(/\.(xlsx|xls)$/i, '').toUpperCase(),
+  }));
+  renderFileConfigs();
+  document.getElementById('settings-card').style.display = STATE.files.length ? 'block' : 'none';
+});
+
+function renderFileConfigs() {
+  const box = document.getElementById('file-configs');
+  box.innerHTML = '';
+  STATE.files.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-config';
+    div.innerHTML = `
+      <div><strong>${escapeHtml(f.file.name)}</strong></div>
+      <div class="row">
+        <label>Tehsil:</label>
+        <select data-i="${i}" data-k="tehsil">
+          ${TEHSILS.map(t => `<option ${t === f.tehsil ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+        <label>Village:</label>
+        <input type="text" data-i="${i}" data-k="village" value="${escapeHtml(f.village)}" style="width:220px;">
+        <label>District:</label>
+        <input type="text" value="Bandipora" disabled style="width:120px;">
+      </div>
+    `;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('select, input[type=text]').forEach(el => {
+    el.addEventListener('change', evt => {
+      const i = +evt.target.dataset.i, k = evt.target.dataset.k;
+      STATE.files[i][k] = evt.target.value;
+    });
+  });
+}
+
+/* ============================================================
+   PROCESS BUTTON
+   ============================================================ */
+// Slider 0-10 → threshold. 0 = disable fuzzy grouping entirely.
+// Higher slider position = more tolerant.
+function sliderToThreshold(v) {
+  const map = { 1:1.00, 2:0.95, 3:0.90, 4:0.85, 5:0.80, 6:0.75, 7:0.70, 8:0.65, 9:0.60, 10:0.55 };
+  return map[v] ?? null;  // null = off
+}
+function sliderLabel(v) {
+  const t = sliderToThreshold(v);
+  if (t === null) return `<strong>0</strong> (off)`;
+  return `<strong>${v}</strong> (threshold ${t.toFixed(2)})`;
+}
+document.getElementById('fuzzy-slider').addEventListener('input', e => {
+  document.getElementById('fuzzy-slider-val').innerHTML = sliderLabel(+e.target.value);
+});
+
+document.getElementById('process-btn').addEventListener('click', async () => {
+  const log = document.getElementById('status-log');
+  log.style.display = 'block';
+  log.textContent = '';
+  const logLine = m => { log.textContent += m + '\n'; log.scrollTop = log.scrollHeight; };
+
+  const sliderVal = +document.getElementById('fuzzy-slider').value;
+  const threshold = sliderToThreshold(sliderVal);
+  const doNonHuman = document.getElementById('detect-nonhuman').checked;
+  const doFuzzy = document.getElementById('cluster-fuzzy').checked && threshold !== null;
+  logLine(`Slider: ${sliderVal}${threshold === null ? ' (fuzzy OFF)' : ` → threshold ${threshold}`}`);
+
+  STATE.villages = [];
+  for (const fEntry of STATE.files) {
+    logLine(`Reading ${fEntry.file.name}...`);
+    try {
+      const rows = await readXlsx(fEntry.file);
+      const v = processVillage(fEntry, rows);
+      if (!v) { logLine(`  → empty file, skipped.`); continue; }
+      buildGroups(v, { doNonHuman, doFuzzy, threshold });
+      STATE.villages.push(v);
+      logLine(`  → format=${v.format}; ${v.persons.length} rows; ${v.nonHumanGroups.length} non-human groups; ${v.similarGroups.length} fuzzy clusters.`);
+    } catch (err) {
+      logLine(`  → ERROR: ${err.message}`);
+      console.error(err);
+    }
+  }
+
+  if (!STATE.villages.length) { logLine('No villages processed.'); return; }
+  STATE.activeTab = 0;
+  renderTabs();
+  renderActiveTab();
+  document.getElementById('review-section').style.display = 'block';
+  document.getElementById('download-section').style.display = 'block';
+  logLine('Done.');
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  document.getElementById('file-input').value = '';
+  STATE.files = []; STATE.villages = []; STATE.activeTab = 0;
+  document.getElementById('file-configs').innerHTML = '';
+  document.getElementById('settings-card').style.display = 'none';
+  document.getElementById('review-section').style.display = 'none';
+  document.getElementById('download-section').style.display = 'none';
+  document.getElementById('status-log').style.display = 'none';
+});
+
+/* ============================================================
+   UI: TABS + REVIEW
+   ============================================================ */
+function renderTabs() {
+  const bar = document.getElementById('tab-bar');
+  bar.innerHTML = '';
+  STATE.villages.forEach((v, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i === STATE.activeTab ? ' active' : '');
+    btn.textContent = `${v.village} (${v.persons.filter(p=>!p.deleted).length})`;
+    btn.addEventListener('click', () => { STATE.activeTab = i; renderTabs(); renderActiveTab(); });
+    bar.appendChild(btn);
+  });
+}
+
+function renderActiveTab() {
+  const box = document.getElementById('tab-content');
+  const v = STATE.villages[STATE.activeTab];
+  if (!v) { box.innerHTML = ''; return; }
+
+  const alive = v.persons.filter(p => !p.deleted);
+  const nhAlive = v.nonHumanGroups.map(g => ({ ...g, members: g.members.filter(m => !m.deleted) })).filter(g => g.members.length);
+  const simAlive = v.similarGroups.map(g => ({ ...g, members: g.members.filter(m => !m.deleted) })).filter(g => g.members.length > 1);
+
+  let html = `
+    <div class="stats">
+      <span class="stat-pill">Village: <strong>${escapeHtml(v.village)}</strong></span>
+      <span class="stat-pill">Tehsil: <strong>${escapeHtml(v.tehsil)}</strong></span>
+      <span class="stat-pill">Alive: <strong>${alive.length}</strong> / ${v.persons.length}</span>
+      <span class="stat-pill">Non-human groups: <strong>${nhAlive.length}</strong></span>
+      <span class="stat-pill">Fuzzy clusters: <strong>${simAlive.length}</strong></span>
+    </div>
+  `;
+
+  // ---- Non-human section ----
+  if (nhAlive.length) {
+    html += `<div class="section-header"><h3>⚠️ Non-Human Entries (${nhAlive.reduce((a,g)=>a+g.members.length,0)} rows across ${nhAlive.length} groups)</h3>
+      <button class="danger small" onclick="deleteAllNonHuman()">Delete All Non-Human</button></div>`;
+    for (const g of nhAlive) {
+      html += renderGroupCard(g, 'nonhuman', v);
+    }
+  }
+
+  // ---- Similar section ----
+  if (simAlive.length) {
+    html += `<div class="section-header"><h3>👥 Similar Name Groups (${simAlive.length})</h3>
+      <span class="small-muted">Merges surveys from checked rows into the first unchecked row of each group on Apply.</span></div>`;
+    for (const g of simAlive) {
+      html += renderGroupCard(g, 'similar', v);
+    }
+  }
+
+  if (nhAlive.length + simAlive.length > 0) {
+    html += `<div class="master-actions">
+      <button class="danger" onclick="applyDeletions()">Apply Checked Deletions</button>
+      <button class="secondary" onclick="clearAllChecks()">Clear All Checks</button>
+      <button class="secondary" onclick="undoDeletions()">Undo All Deletions</button>
+    </div>`;
+  }
+
+  // ---- Full list ----
+  html += `<div class="section-header"><h3>All persons in ${escapeHtml(v.village)}</h3>
+    <span class="small-muted">Struck-through = deleted. Shown for reference; only surviving rows go into downloads.</span></div>`;
+  html += renderFullTable(v);
+
+  box.innerHTML = html;
+}
+
+function renderGroupCard(g, kind, v) {
+  const label = kind === 'nonhuman' ? g.label : `Cluster of ${g.members.length}`;
+  const btnDeleteAll = kind === 'nonhuman'
+    ? `<button class="danger small" onclick="event.stopPropagation(); checkAllInGroup('${kind}','${g.key||g.members[0].id}')">Check all</button>`
+    : `<button class="secondary small" onclick="event.stopPropagation(); checkAllButFirst('${kind}','${g.members[0].id}')">Check all but first</button>`;
+  const showScore = kind === 'similar';
+  const isAadhaar = v.format === 'aadhaar';
+
+  // Column headers depend on format
+  const headerCells = isAadhaar
+    ? '<th>Del</th><th>Khewat</th><th>Khata</th><th>Khasra</th><th>Name</th><th>Parentage</th><th>Type</th>'
+    : '<th>Del</th><th>Bucket ID</th><th>Name</th><th>Parentage</th><th>Survey Nos</th><th>#Rows</th>';
+  const scoreHeader = showScore ? '<th>Sim (name/par)</th>' : '';
+
+  const rows = g.members.map((p, idx) => {
+    const scoreCell = showScore
+      ? (idx === 0
+          ? '<td class="small-muted">— (rep)</td>'
+          : `<td class="nowrap">${(p.simToRep?.name ?? 0).toFixed(2)} / ${(p.simToRep?.par ?? 0).toFixed(2)}</td>`)
+      : '';
+    const dataCells = isAadhaar
+      ? `<td class="nowrap">${escapeHtml(p.khewat)}</td>
+         <td class="nowrap">${escapeHtml(p.khata)}</td>
+         <td class="nowrap">${escapeHtml(p.khasra)}</td>
+         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
+         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
+         <td class="nowrap">${escapeHtml(p.type)}</td>`
+      : `<td class="nowrap">${escapeHtml(p.bucketId)}</td>
+         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
+         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
+         <td>${escapeHtml((p.surveys||[]).join(', '))}</td>
+         <td class="nowrap">${p.rowCount}</td>`;
+    return `
+    <tr class="${kind === 'nonhuman' ? 'nonhuman-row' : 'dup-row'}">
+      <td class="checkbox-cell"><input type="checkbox" class="del-check" data-id="${p.id}"></td>
+      ${dataCells}
+      ${scoreCell}
+    </tr>`;
+  }).join('');
+  return `
+    <div class="group-card">
+      <div class="group-header ${kind}" onclick="toggleGroup(this)">
+        <div><strong>${escapeHtml(label)}</strong> <span class="small-muted">— ${g.members.length} rows</span></div>
+        <div class="actions">${btnDeleteAll}</div>
+      </div>
+      <div class="group-body">
+        <table>
+          <thead><tr>${headerCells}${scoreHeader}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderFullTable(v) {
+  const alive = v.persons;
+  const isAadhaar = v.format === 'aadhaar';
+  const headerCells = isAadhaar
+    ? '<th>S.No.</th><th>Khewat</th><th>Khata</th><th>Khasra</th><th>Name</th><th>Parentage</th><th>Type</th><th>Flag</th>'
+    : '<th>S.No.</th><th>Bucket ID</th><th>Name</th><th>Parentage</th><th>Survey Nos</th><th>#Rows</th><th>Flag</th>';
+  let html = `<table><thead><tr>${headerCells}</tr></thead><tbody>`;
+  let sn = 0;
+  for (const p of alive) {
+    if (!p.deleted) sn++;
+    const flag = p.nonHumanKey ? '⚠️ Non-human' : '';
+    const dataCells = isAadhaar
+      ? `<td class="nowrap">${escapeHtml(p.khewat)}</td>
+         <td class="nowrap">${escapeHtml(p.khata)}</td>
+         <td class="nowrap">${escapeHtml(p.khasra)}</td>
+         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
+         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
+         <td class="nowrap">${escapeHtml(p.type)}</td>`
+      : `<td>${escapeHtml(p.bucketId)}</td>
+         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
+         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
+         <td>${escapeHtml((p.surveys||[]).join(', '))}</td>
+         <td>${p.rowCount}</td>`;
+    html += `<tr class="${p.deleted ? 'deleted-row' : ''}">
+      <td>${p.deleted ? '—' : sn}</td>
+      ${dataCells}
+      <td>${flag}</td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  return html;
+}
+
+/* ============================================================
+   GROUP ACTIONS (called from onclick handlers)
+   ============================================================ */
+window.toggleGroup = function(hdr) {
+  const body = hdr.nextElementSibling;
+  body.classList.toggle('collapsed');
+};
+
+window.checkAllInGroup = function(kind, keyOrId) {
+  const v = STATE.villages[STATE.activeTab];
+  const groups = kind === 'nonhuman' ? v.nonHumanGroups : v.similarGroups;
+  const g = groups.find(x => (x.key || x.members[0].id) === keyOrId);
+  if (!g) return;
+  const ids = new Set(g.members.map(m => m.id));
+  document.querySelectorAll('.del-check').forEach(cb => {
+    if (ids.has(cb.dataset.id)) cb.checked = true;
+  });
+};
+
+window.checkAllButFirst = function(kind, firstId) {
+  const v = STATE.villages[STATE.activeTab];
+  const g = v.similarGroups.find(x => x.members[0].id === firstId);
+  if (!g) return;
+  const ids = new Set(g.members.slice(1).map(m => m.id));
+  document.querySelectorAll('.del-check').forEach(cb => {
+    if (ids.has(cb.dataset.id)) cb.checked = true;
+    else if (cb.dataset.id === firstId) cb.checked = false;
+  });
+};
+
+window.deleteAllNonHuman = function() {
+  const v = STATE.villages[STATE.activeTab];
+  const ids = new Set();
+  v.nonHumanGroups.forEach(g => g.members.forEach(m => { if (!m.deleted) ids.add(m.id); }));
+  if (!ids.size) return;
+  if (!confirm(`Delete all ${ids.size} non-human rows in ${v.village}?`)) return;
+  for (const p of v.persons) if (ids.has(p.id)) p.deleted = true;
+  renderTabs(); renderActiveTab();
+};
+
+window.applyDeletions = function() {
+  const v = STATE.villages[STATE.activeTab];
+  const checkedIds = new Set([...document.querySelectorAll('.del-check:checked')].map(cb => cb.dataset.id));
+  if (!checkedIds.size) { alert('Nothing checked.'); return; }
+
+  // Bucket format only: merge surveys + rowCount from checked → first surviving row of cluster.
+  // Aadhaar format: each row is one khasra, no aggregation; just delete.
+  if (v.format === 'bucket') {
+    for (const g of v.similarGroups) {
+      const aliveMembers = g.members.filter(m => !m.deleted);
+      const checked = aliveMembers.filter(m => checkedIds.has(m.id));
+      const kept    = aliveMembers.filter(m => !checkedIds.has(m.id));
+      if (!checked.length || !kept.length) continue;
+      const survivor = kept[0];
+      const mergedSet = new Set(survivor.surveys);
+      for (const c of checked) c.surveys.forEach(s => mergedSet.add(s));
+      survivor.surveys = [...mergedSet].sort((a,b)=>{
+        const na = parseFloat(a.split('/')[0]) || 0;
+        const nb = parseFloat(b.split('/')[0]) || 0;
+        return na - nb;
+      });
+      survivor.rowCount += checked.reduce((s,m)=>s+m.rowCount, 0);
+    }
+  }
+
+  for (const p of v.persons) if (checkedIds.has(p.id)) p.deleted = true;
+  renderTabs(); renderActiveTab();
+};
+
+window.clearAllChecks = function() {
+  document.querySelectorAll('.del-check').forEach(cb => cb.checked = false);
+};
+
+window.undoDeletions = function() {
+  const v = STATE.villages[STATE.activeTab];
+  v.persons.forEach(p => p.deleted = false);
+  renderTabs(); renderActiveTab();
+};
+
+/* ============================================================
+   DOWNLOADS
+   ============================================================ */
+document.getElementById('dl-current-xlsx').addEventListener('click', async () => {
+  const v = STATE.villages[STATE.activeTab];
+  const blob = await buildExcelBlob(v);
+  saveAs(blob, `Verification_${v.village}.xlsx`);
+});
+
+document.getElementById('dl-current-pdf').addEventListener('click', () => {
+  const v = STATE.villages[STATE.activeTab];
+  const blob = buildPdfBlob(v);
+  saveAs(blob, `Verification_${v.village}.pdf`);
+});
+
+document.getElementById('dl-all-zip').addEventListener('click', async () => {
+  const zip = new JSZip();
+  for (const v of STATE.villages) {
+    const xlsx = await buildExcelBlob(v);
+    const pdf  = buildPdfBlob(v);
+    zip.file(`Verification_${v.village}.xlsx`, xlsx);
+    zip.file(`Verification_${v.village}.pdf`, pdf);
+  }
+  const out = await zip.generateAsync({ type: 'blob' });
+  saveAs(out, `Verification_all_villages.zip`);
+});
+
+async function buildExcelBlob(v) {
+  const alive = v.persons.filter(p => !p.deleted);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Verification');
+  const listSheet = wb.addWorksheet('_lists');
+  listSheet.state = 'hidden';
+  listSheet.getCell('A1').value = 'Issued';
+  listSheet.getCell('A2').value = 'Pending';
+  wb.definedNames.add(`_lists!$A$1:$A$2`, 'StatusList');
+
+  // Cluster info: mirrors what the HTML review shows so the Excel is the same document.
+  const clusterInfo = new Map();
+  v.similarGroups.forEach((g, i) => {
+    const label = `CL-${String(i + 1).padStart(2, '0')}`;
+    const liveMembers = g.members.filter(m => !m.deleted);
+    liveMembers.forEach((m, j) => {
+      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 1 });
+    });
+  });
+  v.nonHumanGroups.forEach((g, i) => {
+    const label = `NH-${g.key}`;
+    const liveMembers = g.members.filter(m => !m.deleted);
+    liveMembers.forEach((m, j) => {
+      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 2 });
+    });
+  });
+
+  // Sort: similar clusters (grouped, in order), then non-human groups, then singletons in original order.
+  const originalIdx = new Map();
+  v.persons.forEach((p, idx) => originalIdx.set(p.id, idx));
+  const sorted = [...alive].sort((a, b) => {
+    const ia = clusterInfo.get(a.id);
+    const ib = clusterInfo.get(b.id);
+    if (!ia && !ib) return originalIdx.get(a.id) - originalIdx.get(b.id);
+    if (!ia) return 1;
+    if (!ib) return -1;
+    if (ia.section !== ib.section) return ia.section - ib.section;
+    if (ia.clusterOrder !== ib.clusterOrder) return ia.clusterOrder - ib.clusterOrder;
+    return ia.memberOrder - ib.memberOrder;
+  });
+
+  // Colour palette mirrors the HTML review UI (--dup-bg / --warn-bg).
+  const SIMILAR_COLORS = ['FEF3F2', 'FBE0DD']; // alternating pinks so adjacent clusters don't blur
+  const NONHUMAN_COLOR = 'FFF8E1';              // warm yellow
+  function fillFor(personId) {
+    const info = clusterInfo.get(personId);
+    if (!info) return null;
+    if (info.section === 2) return NONHUMAN_COLOR;
+    return SIMILAR_COLORS[info.clusterOrder % SIMILAR_COLORS.length];
+  }
+  function labelFor(personId) {
+    return clusterInfo.get(personId)?.label || '';
+  }
+
+  if (v.format === 'aadhaar') {
+    // 10-col Aadhaar structure (added CLUSTER as col B)
+    ws.mergeCells('A1:J1');
+    const hdr = ws.getCell('A1');
+    hdr.value = `AGRISTACK — AADHAAR SEEDING (POST-PRUNE)  |  Village: ${v.village}  |  Tehsil: ${v.tehsil}  |  District: Bandipora`;
+    hdr.font = { bold: true, size: 12 };
+    hdr.alignment = { horizontal: 'center' };
+    ws.getRow(1).height = 22;
+
+    ws.getRow(2).values = ['S.NO.','CLUSTER','KHEWAT','KHATA','KHASRA','NAME','PARENTAGE','TYPE','STATUS','REASON'];
+    ws.getRow(2).font = { bold: true };
+    ws.getRow(2).alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 24;
+
+    ws.columns = [
+      { width: 6 },   // S.No.
+      { width: 10 },  // Cluster
+      { width: 8 },   // Khewat
+      { width: 8 },   // Khata
+      { width: 14 },  // Khasra
+      { width: 24 },  // Name
+      { width: 26 },  // Parentage
+      { width: 12 },  // Type
+      { width: 10 },  // Status
+      { width: 25 },  // Reason
+    ];
+
+    sorted.forEach((p, i) => {
+      const row = ws.addRow([i + 1, labelFor(p.id), p.khewat, p.khata, p.khasra, p.name, p.parentage, p.type, p.status || '', p.reason || '']);
+      row.alignment = { vertical: 'top', wrapText: true };
+      const fill = fillFor(p.id);
+      if (fill) {
+        row.eachCell({ includeEmpty: true }, cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+        });
+      }
+    });
+
+    const lastRow = 2 + sorted.length;
+    for (let r = 3; r <= lastRow; r++) {
+      ws.getCell(`I${r}`).dataValidation = {
+        type: 'list', allowBlank: true, formulae: ['=StatusList'],
+        showErrorMessage: true, errorStyle: 'warning',
+        errorTitle: 'Invalid', error: 'Choose Issued or Pending'
+      };
+    }
+    for (let r = 2; r <= lastRow; r++) {
+      for (let c = 1; c <= 10; c++) {
+        ws.getCell(r, c).border = {
+          top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}
+        };
+      }
+    }
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: 10 } };
+    ws.views = [{ state: 'frozen', ySplit: 2 }];
+    ws.pageSetup = {
+      orientation: 'landscape', paperSize: 9,
+      fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 },
+      printTitlesRow: '1:2',
+    };
+  } else {
+    // Bucket 9-col structure (added Cluster as col B)
+    ws.mergeCells('A1:I1');
+    const hdr = ws.getCell('A1');
+    hdr.value = `District: Bandipora  |  Tehsil: ${v.tehsil}  |  Village: ${v.village}`;
+    hdr.font = { bold: true, size: 12 };
+    hdr.alignment = { horizontal: 'center' };
+    ws.getRow(1).height = 22;
+
+    ws.getRow(2).values = ['S.No.','Cluster','Bucket ID','Name','Parentage','Survey Nos','#Rows','Status','Reason for Pendency'];
+    ws.getRow(2).font = { bold: true };
+    ws.getRow(2).alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 24;
+
+    ws.columns = [
+      { width: 6 }, { width: 10 }, { width: 14 }, { width: 22 }, { width: 22 },
+      { width: 26 }, { width: 8 }, { width: 10 }, { width: 25 },
+    ];
+
+    sorted.forEach((p, i) => {
+      const row = ws.addRow([i + 1, labelFor(p.id), p.bucketId, p.name, p.parentage, (p.surveys||[]).join(', '), p.rowCount, '', '']);
+      row.alignment = { vertical: 'top', wrapText: true };
+      const fill = fillFor(p.id);
+      if (fill) {
+        row.eachCell({ includeEmpty: true }, cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+        });
+      }
+    });
+
+    const lastRow = 2 + sorted.length;
+    for (let r = 3; r <= lastRow; r++) {
+      ws.getCell(`H${r}`).dataValidation = {
+        type: 'list', allowBlank: true, formulae: ['=StatusList'],
+        showErrorMessage: true, errorStyle: 'warning',
+        errorTitle: 'Invalid', error: 'Choose Issued or Pending'
+      };
+    }
+    for (let r = 2; r <= lastRow; r++) {
+      for (let c = 1; c <= 9; c++) {
+        ws.getCell(r, c).border = {
+          top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}
+        };
+      }
+    }
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: 9 } };
+    ws.views = [{ state: 'frozen', ySplit: 2 }];
+    ws.pageSetup = {
+      orientation: 'landscape', paperSize: 9,
+      fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 },
+      printTitlesRow: '1:2',
+    };
+  }
+
+  const buf = await wb.xlsx.writeBuffer();
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function buildPdfBlob(v) {
+  const alive = v.persons.filter(p => !p.deleted);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  // Same cluster sort + colour logic as the Excel, so both downloads match the HTML view.
+  const clusterInfo = new Map();
+  v.similarGroups.forEach((g, i) => {
+    const label = `CL-${String(i + 1).padStart(2, '0')}`;
+    const liveMembers = g.members.filter(m => !m.deleted);
+    liveMembers.forEach((m, j) => {
+      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 1 });
+    });
+  });
+  v.nonHumanGroups.forEach((g, i) => {
+    const label = `NH-${g.key}`;
+    const liveMembers = g.members.filter(m => !m.deleted);
+    liveMembers.forEach((m, j) => {
+      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 2 });
+    });
+  });
+  const originalIdx = new Map();
+  v.persons.forEach((p, idx) => originalIdx.set(p.id, idx));
+  const sorted = [...alive].sort((a, b) => {
+    const ia = clusterInfo.get(a.id);
+    const ib = clusterInfo.get(b.id);
+    if (!ia && !ib) return originalIdx.get(a.id) - originalIdx.get(b.id);
+    if (!ia) return 1;
+    if (!ib) return -1;
+    if (ia.section !== ib.section) return ia.section - ib.section;
+    if (ia.clusterOrder !== ib.clusterOrder) return ia.clusterOrder - ib.clusterOrder;
+    return ia.memberOrder - ib.memberOrder;
+  });
+
+  const SIMILAR_COLORS = [[254, 243, 242], [251, 224, 221]];
+  const NONHUMAN_COLOR = [255, 248, 225];
+  function fillFor(personId) {
+    const info = clusterInfo.get(personId);
+    if (!info) return null;
+    if (info.section === 2) return NONHUMAN_COLOR;
+    return SIMILAR_COLORS[info.clusterOrder % SIMILAR_COLORS.length];
+  }
+  function labelFor(personId) {
+    return clusterInfo.get(personId)?.label || '';
+  }
+
+  const isAadhaar = v.format === 'aadhaar';
+  const head = isAadhaar
+    ? [['S.No.','Cluster','Khewat','Khata','Khasra','Name','Parentage','Type','Status','Reason']]
+    : [['S.No.','Cluster','Bucket ID','Name','Parentage','Survey Nos','#Rows','Status','Reason for Pendency']];
+  const body = isAadhaar
+    ? sorted.map((p, i) => [i + 1, labelFor(p.id), p.khewat, p.khata, p.khasra, p.name || '', p.parentage || '', p.type, p.status || '', p.reason || ''])
+    : sorted.map((p, i) => [i + 1, labelFor(p.id), p.bucketId, p.name || '', p.parentage || '', (p.surveys||[]).join(', '), p.rowCount, '', '']);
+  const columnStyles = isAadhaar
+    ? {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 14 },
+        2: { cellWidth: 12 },
+        3: { cellWidth: 12 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 38 },
+        6: { cellWidth: 42 },
+        7: { cellWidth: 16 },
+        8: { cellWidth: 18 },
+        9: { cellWidth: 40 },
+      }
+    : {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 16 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 38 },
+        4: { cellWidth: 38 },
+        5: { cellWidth: 46 },
+        6: { cellWidth: 14, halign: 'center' },
+        7: { cellWidth: 20 },
+        8: { cellWidth: 56 },
+      };
+  const title = isAadhaar
+    ? `AGRISTACK — AADHAAR SEEDING (POST-PRUNE)  |  Village: ${v.village}  |  Tehsil: ${v.tehsil}  |  District: Bandipora`
+    : `District: Bandipora  |  Tehsil: ${v.tehsil}  |  Village: ${v.village}`;
+
+  doc.autoTable({
+    head, body, startY: 22, theme: 'grid',
+    headStyles: { fillColor: [238,242,247], textColor: 20, fontStyle: 'bold', halign: 'center' },
+    styles: { fontSize: 8, cellPadding: 2, valign: 'top', minCellHeight: 8 },
+    columnStyles,
+    didParseCell: function(data) {
+      if (data.section === 'body') {
+        const p = sorted[data.row.index];
+        if (p) {
+          const fill = fillFor(p.id);
+          if (fill) data.cell.styles.fillColor = fill;
+        }
+      }
+    },
+    didDrawPage: () => {
+      doc.setFontSize(11); doc.setFont(undefined, 'bold');
+      doc.text(title, 148, 14, { align: 'center' });
+      doc.setFontSize(9); doc.setFont(undefined, 'normal');
+      doc.text('Verification Sheet — Landholder Aadhaar Seeding', 148, 19, { align: 'center' });
+    },
+    margin: { top: 22, left: 8, right: 8, bottom: 12 },
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.text(`Page ${i} of ${pageCount}`, 290, 205, { align: 'right' });
+  }
+
+  return doc.output('blob');
+}
+
+/* ============================================================
+   UTIL
+   ============================================================ */
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
