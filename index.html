@@ -1,1354 +1,588 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Village Bucket Verification Sheet Generator — v-next</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Farmer ID page generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <style>
-  :root {
-    --bg: #f5f7fa;
-    --card: #ffffff;
-    --border: #d5dae2;
-    --text: #1a202c;
-    --muted: #6b7280;
-    --accent: #2b6cb0;
-    --accent-hover: #234e7d;
-    --danger: #c53030;
-    --danger-hover: #9b2323;
-    --warn-bg: #fff8e1;
-    --warn-border: #f0c674;
-    --dup-bg: #fef3f2;
-    --dup-border: #f9b8b3;
-    --ok-bg: #edf7ee;
-    --ok-border: #a5d6a7;
-    --header-bg: #eef2f7;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 24px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text);
-    font-size: 14px;
-  }
-  h1 { margin: 0 0 4px; font-size: 22px; }
-  .subtitle { color: var(--muted); margin-bottom: 20px; }
-  .card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 8px; padding: 20px; margin-bottom: 18px;
-  }
-  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  label { font-weight: 600; margin-right: 6px; }
-  input[type=text], select {
-    padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px;
-    font-size: 14px; font-family: inherit;
-  }
-  input[type=file] { padding: 6px; }
-  button {
-    padding: 8px 16px; border: 1px solid var(--accent); background: var(--accent);
-    color: white; border-radius: 4px; cursor: pointer; font-size: 14px; font-family: inherit;
-  }
-  button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-  button.secondary { background: white; color: var(--accent); }
-  button.secondary:hover { background: var(--header-bg); color: var(--accent-hover); }
-  button.danger { background: var(--danger); border-color: var(--danger); }
-  button.danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
-  button.small { padding: 4px 10px; font-size: 13px; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
-  th, td { padding: 6px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
-  th { background: var(--header-bg); font-weight: 600; }
-  tr.dup-row { background: var(--dup-bg); }
-  tr.nonhuman-row { background: var(--warn-bg); }
-  tr.deleted-row { opacity: 0.4; text-decoration: line-through; }
-  .file-config { margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; }
-  .file-config .row { margin-top: 6px; }
-  .tab-bar {
-    display: flex; gap: 4px; border-bottom: 2px solid var(--border);
-    margin-bottom: 16px; flex-wrap: wrap;
-  }
-  .tab-btn {
-    padding: 8px 14px; background: transparent; color: var(--text);
-    border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0;
-    cursor: pointer; font-size: 13px;
-  }
-  .tab-btn:hover { background: var(--header-bg); }
-  .tab-btn.active { background: white; border-color: var(--border); border-bottom: 2px solid white; margin-bottom: -2px; color: var(--accent); font-weight: 600; }
-  .group-card {
-    border: 1px solid var(--border); border-radius: 6px; margin: 10px 0;
-    overflow: hidden;
-  }
-  .group-header {
-    background: var(--header-bg); padding: 10px 14px;
-    display: flex; justify-content: space-between; align-items: center;
-    cursor: pointer; user-select: none;
-  }
-  .group-header.nonhuman { background: var(--warn-bg); border-bottom: 1px solid var(--warn-border); }
-  .group-header.similar { background: var(--dup-bg); border-bottom: 1px solid var(--dup-border); }
-  .group-header .actions button { margin-left: 6px; }
-  .group-body { padding: 8px 12px; }
-  .group-body.collapsed { display: none; }
-  .stats {
-    display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0;
-    font-size: 13px; color: var(--muted);
-  }
-  .stat-pill {
-    background: var(--header-bg); padding: 4px 10px; border-radius: 999px;
-  }
-  .stat-pill strong { color: var(--text); }
-  .section-header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
-  }
-  .section-header h3 { margin: 0; font-size: 16px; }
-  .checkbox-cell { width: 32px; text-align: center; }
-  .nowrap { white-space: nowrap; }
-  .small-muted { color: var(--muted); font-size: 12px; }
-  .status-log {
-    background: #f8fafc; border: 1px solid var(--border); border-radius: 4px;
-    padding: 8px 12px; font-family: ui-monospace, "SF Mono", monospace;
-    font-size: 12px; max-height: 200px; overflow-y: auto;
-    margin-top: 12px; white-space: pre-wrap;
-  }
-  .toolbar {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
-    padding: 10px; background: var(--header-bg); border-radius: 6px;
-  }
-  .master-actions { margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; }
-  .level-btn {
-    padding: 6px 14px; background: white; color: var(--text);
-    border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
-    font-size: 13px; font-family: inherit;
-  }
-  .level-btn:hover { background: var(--header-bg); }
-  .level-btn.active {
-    background: var(--accent); color: white; border-color: var(--accent); font-weight: 600;
-  }
+:root{--ink:#1c2a36;--ink-2:#4a5a67;--ink-3:#7c8a95;--paper:#f5f6f3;--card:#fff;--line:#dde2dc;--line-2:#eceee9;
+  --field:#2f6b4f;--field-bg:#e6f0ea;--brick:#a8432a;--brick-bg:#f8e3dc;--orange:#b85a0d;--orange-bg:#fdecd9;--slate:#43607a;--focus:#2a6fdb;--submit-bg:#f1f4f8;--submit-line:#b9c6d4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ink:#e6ebef;--ink-2:#b3bec7;--ink-3:#86939d;--paper:#141a1f;--card:#1c242b;--line:#2f3a43;--line-2:#252f37;
+  --field:#6cc19a;--field-bg:#1e3329;--brick:#ef8f76;--brick-bg:#3b231d;--orange:#f5a45c;--orange-bg:#3a2715;--slate:#9ab8d3;--submit-bg:#1f2830;--submit-line:#3f4f5d}}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:820px;margin:0 auto;padding:0 18px 60px}
+header{padding:30px 0 10px}
+h1{font:600 28px/1.15 "IBM Plex Serif",Georgia,serif;margin:0}
+.sub{color:var(--ink-2);margin:8px 0 0;max-width:62ch}
+.step{background:var(--card);border:1px solid #c9d0d6;border-radius:12px;padding:18px 20px;margin-top:18px;box-shadow:0 1px 2px rgba(20,30,40,.05)}
+.step h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.step h2 i{font-style:normal;background:var(--ink);color:var(--paper);border-radius:6px;padding:1px 8px;font-size:13px}
+.drop{border:2px dashed var(--submit-line);background:var(--submit-bg);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;color:var(--ink-2)}
+.drop.over{border-color:var(--ink);color:var(--ink)}
+.drop b{color:var(--ink)}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.slot{border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px}
+.slot .k{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.slot .f{word-break:break-all}
+.slot.ok{border-color:color-mix(in srgb,var(--field) 45%,transparent);background:color-mix(in srgb,var(--field) 6%,var(--card))}
+.slot .f.none{color:var(--ink-3)}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:var(--ink);width:0;transition:width .15s}
+.pmsg{font-size:13px;color:var(--ink-2);margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 18px;margin-top:6px}
+.num b{display:block;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.num span{font-size:13px;color:var(--ink-2)}
+.num.o b{color:var(--orange)} .num.r b{color:var(--brick)}
+.msg{border-radius:8px;padding:9px 12px;font-size:14px;margin-top:12px}
+.msg.warn{background:var(--orange-bg);color:var(--orange)}
+.msg.err{background:var(--brick-bg);color:var(--brick)}
+.msg.ok{background:var(--field-bg);color:var(--field)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media (max-width:600px){.two{grid-template-columns:1fr}}
+select.in{appearance:auto}
+label.fl{display:block;font-size:14px;font-weight:600;margin:14px 0 4px}
+label.fl small{font-weight:400;color:var(--ink-3)}
+.in{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 11px;background:var(--card)}
+textarea.in{min-height:190px;font-size:14px;line-height:1.5}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.btn{border:1px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:8px;padding:10px 18px;cursor:pointer;font-weight:500}
+.btn.sec{background:var(--card);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:default}
+.hidden{display:none}
+.files{margin-top:14px;font-size:14px;color:var(--ink-2)}
+.files ul{margin:6px 0 0;padding-left:20px}
+.files a{color:var(--slate)}
+.note{font-size:13px;color:var(--ink-3);margin-top:10px}
+@media (max-width:600px){.slots{grid-template-columns:1fr} h1{font-size:23px}}
 </style>
 </head>
 <body>
+<div class="wrap">
+<header>
+  <h1>Farmer ID page generator</h1>
+  <p class="sub">Drop a village's two AgriStack Excel files. The tool checks names within each bucket, finds the same person across buckets, links every plot to its khewat and khata, and gives you the ready page for that village. Files are read in this browser only; nothing is uploaded.</p>
+</header>
 
-<h1>Village Verification Sheet Generator</h1>
-<div class="subtitle">
-  Handles two input formats: <strong>AgriStack Village Wise Bucket Data</strong> (BucketId/OwnerName/…) and <strong>Aadhaar Collection sheet</strong> (S.No/Khewat/Khata/Khasra/Name/Parentage/…). Format is auto-detected per file. Fuzzy name matching, non-human entity grouping, and flexible per-row deletion.
+<section class="step">
+  <h2><i>1</i> Add the two Excel files</h2>
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose Excel files"><b>Drop both files here</b> or tap to choose<br><span style="font-size:13px">Village Wise Bucket Data and the AgriStack village file (.xlsx), in any order</span></div>
+  <input type="file" id="file" accept=".xlsx,.xls" multiple hidden>
+  <div class="slots">
+    <div class="slot" id="s-bucket"><div class="k">Bucket data</div><div class="f none">Not added</div></div>
+    <div class="slot" id="s-agri"><div class="k">AgriStack village file</div><div class="f none">Not added</div></div>
+  </div>
+  <div id="fileMsg"></div>
+</section>
+
+<section class="step hidden" id="stepCheck">
+  <h2><i>2</i> Check</h2>
+  <div id="prog"><div class="bar"><i id="pbar"></i></div><div class="pmsg" id="pmsg">Reading…</div></div>
+  <div id="result" class="hidden">
+    <div class="grid" id="nums"></div>
+    <div id="warns"></div>
+  </div>
+</section>
+
+<section class="step hidden" id="stepMake">
+  <h2><i>3</i> Village details and download</h2>
+  <div class="two">
+    <div><label class="fl" for="village">Village name <small>must match the admin registration</small></label>
+    <input class="in" id="village"></div>
+    <div><label class="fl" for="tehsil">Tehsil</label>
+    <select class="in" id="tehsil"><option value="">Choose tehsil…</option></select></div>
+  </div>
+  <div class="two">
+    <div><label class="fl" for="user">Village username</label><input class="in" id="user" autocapitalize="none" spellcheck="false"></div>
+    <div><label class="fl" for="pass">Village password <small>suggested; change if you like</small></label><input class="in" id="pass" spellcheck="false"></div>
+  </div>
+  <label class="fl" for="url">Apps Script URL <small>the portal's /exec link; villages log in through it</small></label>
+  <input class="in" id="url" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+
+  <div class="btns">
+    <button class="btn" id="dl">Download all files (ZIP)</button>
+    <button class="btn sec" id="pv">Preview page</button>
+  </div>
+  <div class="files" id="files"></div>
+</section>
 </div>
 
-<!-- ================= STEP 1: UPLOAD ================= -->
-<div class="card">
-  <h3 style="margin-top:0">1. Upload files</h3>
-  <div class="row">
-    <input type="file" id="file-input" multiple accept=".xlsx,.xls">
-    <span class="small-muted">Select one or more "Village Wise Bucket Data" .xlsx files.</span>
-  </div>
-  <div id="file-configs"></div>
-</div>
+<script id="engine">
+/* Bucket analysis engine – JS port of the Python logic used for Shadipora.
+   Input: rows from the AgriStack "Village Wise Bucket Data" sheet and the AgriStack village sheet.
+   Output: the DATA object embedded in the Farmer ID page.                                        */
+var BucketEngine = (function(){
 
-<!-- ================= STEP 2: SETTINGS ================= -->
-<div class="card" id="settings-card" style="display:none;">
-  <h3 style="margin-top:0">2. Detection settings</h3>
-  <div class="row">
-    <label>Fuzzy grouping:</label>
-    <input type="range" id="fuzzy-slider" min="0" max="10" step="1" value="0" style="width:260px;">
-    <span id="fuzzy-slider-val" style="min-width:70px; display:inline-block;"><strong>0</strong> (off)</span>
-    <span class="small-muted">0 = no grouping. Slide right for more tolerance. Below each group card you'll see similarity scores so you can see why the tool clustered rows.</span>
-  </div>
-  <div class="row" style="margin-top:8px;">
-    <label><input type="checkbox" id="detect-nonhuman" checked> Detect non-human entities</label>
-    <label style="margin-left:16px;"><input type="checkbox" id="cluster-fuzzy" checked> Cluster fuzzy-similar names</label>
-  </div>
-  <div class="row" style="margin-top:12px;">
-    <button id="process-btn">Process files</button>
-    <button class="secondary" id="reset-btn">Reset</button>
-  </div>
-  <div id="status-log" class="status-log" style="display:none;"></div>
-</div>
-
-<!-- ================= STEP 3: REVIEW ================= -->
-<div id="review-section" style="display:none;">
-  <div class="card">
-    <h3 style="margin-top:0">3. Review and prune</h3>
-    <div id="tab-bar" class="tab-bar"></div>
-    <div id="tab-content"></div>
-  </div>
-</div>
-
-<!-- ================= STEP 4: DOWNLOAD ================= -->
-<div id="download-section" class="card" style="display:none;">
-  <h3 style="margin-top:0">4. Download</h3>
-  <div class="row">
-    <button id="dl-current-xlsx">Download current village (Excel)</button>
-    <button id="dl-current-pdf" class="secondary">Download current village (PDF)</button>
-    <button id="dl-all-zip" class="secondary" style="margin-left:20px;">Download all villages (ZIP)</button>
-  </div>
-</div>
-
-<script>
-/* ============================================================
-   STATE
-   ============================================================ */
-const STATE = {
-  files: [],          // [{file, tehsil, village}]
-  villages: [],       // [{key, tehsil, village, bucketId?, rows: [personRow], nonHumanGroups: [], similarGroups: []}]
-  activeTab: 0,
-};
-const TEHSILS = ['Bandipora','Sumbal','Aloosa','Hajin','Kaloosa','Ajas','Gurez','Tulail'];
-
-/* ============================================================
-   NON-HUMAN PATTERNS
-   ============================================================ */
-const NON_HUMAN_PATTERNS = [
-  { key: 'shamilat',    label: 'Shamilat / Common Land',
-    rx: /\bsham[il]{1,2}[la]{1,2}t\b/i },
-  { key: 'sarkar',      label: 'Sarkar / Government / State',
-    rx: /\bsarkar\b|\bgovern?ment\b|\bstate\b|\bgovt\b/i },
-  { key: 'maqbooza',    label: 'Maqbooza (Malikaan / Mahkama)',
-    rx: /\bma[kq]b[ou]+(?:z[ae]h?|h)\b/i },
-  { key: 'matwaqah',    label: 'Matwaqah / Matroka',
-    rx: /\bmat[wr]?aq?ah?\b|\bmatr?[ou]ka\b/i },
-  { key: 'khudkasht',   label: 'Khud Kasht',
-    rx: /\bkhud[\s-]?kasht\b/i },
-  { key: 'sharaam',     label: 'Shara Aam / Common Path',
-    rx: /\bsha+r+h?[\s-]?e?[\s-]?a[am]+\b/i },
-  { key: 'wakf',        label: 'Wakf / Trust / Committee / Department',
-    rx: /\bwa[kq]f\b|\btrust\b|\bcommittee\b|\bmahkama+\b|\bdepart?ment\b|\bdept\b|\bboard\b/i },
-  { key: 'masjid',      label: 'Masjid / Religious Institution',
-    rx: /\bmasjid\b|\bmosque\b|\bdargah\b|\bziarat\b/i },
-  { key: 'ahalislam',   label: 'Ahal-e-Islam / Community Land',
-    rx: /\bah[al]{1,2}[iy]?\s+(?:islam|assalam|salaam?)\b|\bahli\s+islam\b/i },
-  { key: 'charai',      label: 'Charai / Grazing Land',
-    rx: /\bchar[aeiy]{2,6}\b/i },
-  { key: 'mufeedaam',   label: 'Mufeed Aam / Public Utility',
-    rx: /\bmuf[ie]+d\b/i },
-  { key: 'aabadi',      label: 'Aabadi / Habitation',
-    rx: /\ba+badi\b/i },
-  { key: 'nil',         label: 'NIL / Empty / N/A',
-    rx: /^(nil|null|none|na|n\/a|#n\/a|-+|\s*)$/i },
-];
-
-function detectNonHuman(name, parentage) {
-  const combined = `${name || ''} ${parentage || ''}`.trim();
-  for (const p of NON_HUMAN_PATTERNS) {
-    if (p.rx.test(combined)) return p;
-    // for the NIL pattern also check individually
-    if (p.key === 'nil') {
-      if (p.rx.test((name||'').trim()) && p.rx.test((parentage||'').trim())) return p;
+/* ---------- difflib.SequenceMatcher(None,a,b).ratio() ---------- */
+function matchCount(a,b){
+  const b2j=new Map();
+  for(let i=0;i<b.length;i++){const c=b[i]; let l=b2j.get(c); if(!l){l=[];b2j.set(c,l);} l.push(i);}
+  function longest(alo,ahi,blo,bhi){
+    let besti=alo,bestj=blo,bestsize=0,j2len=new Map();
+    for(let i=alo;i<ahi;i++){
+      const nj=new Map(), idx=b2j.get(a[i])||[];
+      for(const j of idx){ if(j<blo) continue; if(j>=bhi) break;
+        const k=(j2len.get(j-1)||0)+1; nj.set(j,k);
+        if(k>bestsize){besti=i-k+1;bestj=j-k+1;bestsize=k;} }
+      j2len=nj;
     }
+    return [besti,bestj,bestsize];
   }
-  // Additional: if BOTH name and parentage are nil/empty → nil
-  if (isMissing(name) && isMissing(parentage)) {
-    return NON_HUMAN_PATTERNS.find(p => p.key === 'nil');
+  let total=0; const q=[[0,a.length,0,b.length]];
+  while(q.length){
+    const [alo,ahi,blo,bhi]=q.pop(), [i,j,k]=longest(alo,ahi,blo,bhi);
+    if(k){ total+=k; if(alo<i&&blo<j) q.push([alo,i,blo,j]); if(i+k<ahi&&j+k<bhi) q.push([i+k,ahi,j+k,bhi]); }
   }
+  return total;
+}
+const RC=new Map();
+function ratio(a,b){
+  const la=a.length+b.length; if(!la) return 1;
+  const key=a<b?a+'\u0001'+b:b+'\u0001'+a; let r=RC.get(key);
+  if(r===undefined){ r=2*matchCount(a,b)/la; if(RC.size>300000) RC.clear(); RC.set(key,r); }
+  return r;
+}
+const quick=(a,b)=>{const la=a.length+b.length; return la?2*Math.min(a.length,b.length)/la:1;};
+
+/* ---------- name normalisation ---------- */
+const HONOR=new Set(['masmat','mst','msmt','smt','parwarda','begum','bibi','mr','mrs','late','marhoom','so','do','wo','ss','dd','zoja','dukhtar','pisar','walad']);
+const TOK={};
+['mohd','mohamamd','mohamad','mohammed','muhammad','mohmad','mohaamd','mohammd','mohamd','mohmmad','mohammad','mohd.','mhd','mohamed'].forEach(v=>TOK[v]='mohammad');
+['gulam','gh','golam','ghulam','ghl'].forEach(v=>TOK[v]='ghulam');
+['syed','sayed','sayyed','saiyed','syd'].forEach(v=>TOK[v]='syed');
+['ahmed','ahamad','ahmd','ahmad','ahmmad'].forEach(v=>TOK[v]='ahmad');
+['abdul','abd','abdl','abdal'].forEach(v=>TOK[v]='abdul');
+function ph(t){
+  t=t.replace(/q/g,'k').replace(/ph/g,'f').replace(/w/g,'v').replace(/th/g,'t').replace(/dh/g,'d');
+  t=t.replace(/ee|ie|ey/g,'i').replace(/oo|ou/g,'u');
+  t=t.replace(/(.)\1+/g,'$1');
+  if(t.length>3&&t.endsWith('h')) t=t.slice(0,-1);
+  return t;
+}
+const GENERIC=new Set(['mohammad','ghulam','abdul','ahmad','syed','uddin','ullah','din','mir','bhat','shah','khan','sheikh','sofi','dar','lone','wani','malik']);
+[...GENERIC].forEach(g=>GENERIC.add(ph(g)));
+const MOSET=new Set('mohaud');
+function mo(w){
+  if(TOK[w]) return TOK[w];
+  if(w[0]==='m'&&w.endsWith('d')&&w.length>=5&&w.length<=9&&(w.split('m').length-1)>=2&&w.includes('h')&&[...w].every(c=>MOSET.has(c))&&!w.includes('oo')) return 'mohammad';
+  return w;
+}
+const TC=new Map();
+function tokens(s){
+  let r=TC.get(s); if(r) return r;
+  let x=String(s).toLowerCase();
+  x=x.replace(/\b(ud|ul|u)\s+din\b/g,'uddin').replace(/\b(ud|u|ul)\s*d+in\b/g,'uddin');
+  x=x.replace(/\b(u|ul|ol)\s+lah\b|\b(u|ul)llah\b/g,'ullah');
+  let t=x.split(/[^a-z]+/).filter(Boolean).map(mo).filter(w=>!HONOR.has(w)&&w!=='na'&&w!=='nil');
+  if(t.length>1&&['saeed','saed','sayed'].includes(t[0])) t[0]='syed';
+  r=t.map(ph); TC.set(s,r); return r;
+}
+const canon=s=>tokens(s).join('');
+const strict=s=>String(s).toLowerCase().replace(/[^a-z]/g,'');
+const skel=t=>t?t[0]+t.slice(1).replace(/[aeiouy]/g,''):'';
+const VOW=new Set('aeiouy');
+function tokEq(a,b){
+  if(a===b) return true;
+  if(a[0]!==b[0]&&!(VOW.has(a[0])&&VOW.has(b[0]))) return false;
+  const [s_,l_]=a.length<=b.length?[a,b]:[b,a];
+  if(s_.length>=4&&l_===s_+'a') return false;
+  const r=ratio(a,b);
+  return (r>=0.85&&Math.min(a.length,b.length)>=5)||(skel(a)===skel(b)&&skel(a).length>=2&&r>=0.75);
+}
+const NMC=new Map();
+function nameMatch(a,b,parent){
+  const key=(parent?'p':'n')+a+'\u0001'+b; let c=NMC.get(key); if(c) return c;
+  c=nameMatch_(a,b,parent); if(NMC.size>300000) NMC.clear(); NMC.set(key,c); return c;
+}
+function nameMatch_(a,b,parent){
+  const ta=tokens(a),tb=tokens(b),ca=ta.join(''),cb=tb.join('');
+  if(!ca||!cb) return [0,0];
+  if(ca===cb) return [3,1];
+  const r=ratio(ca,cb);
+  const da=ta.filter(x=>!GENERIC.has(x)).join(''), db=tb.filter(x=>!GENERIC.has(x)).join('');
+  const shorter=da.length<=db.length?da:db, longer=da.length<=db.length?db:da;
+  if(shorter.length>=4&&longer===shorter+'a') return [0,r];
+  const ga=ta.filter(x=>GENERIC.has(x)).join('|'), gb=tb.filter(x=>GENERIC.has(x)).join('|');
+  if(da&&db&&da.length>=6&&da[0]===db[0]&&ratio(da,db)>=0.9&&ga===gb) return [2,r];
+  if(ta.length===tb.length&&ta.every((x,i)=>tokEq(x,tb[i]))) return [2,Math.max(r,0.85)];
+  const [s,l]=ta.length<=tb.length?[ta,tb]:[tb,ta];
+  const distinct=s.filter(x=>!GENERIC.has(x));
+  if(distinct.length&&s.every(x=>l.some(y=>tokEq(x,y)))) return [1,0.8];
+  if(s.length&&l.join('').includes(s.join(''))&&s.join('').length>=4&&distinct.length) return [1,0.75];
+  if(parent&&s.length===1&&l.includes(s[0])) return [1,0.7];
+  return [0,r];
+}
+function personMatch(n1,p1,n2,p2){
+  if(strict(n1)===strict(n2)&&strict(p1)===strict(p2)) return 'Identical';
+  const a=nameMatch(n1,n2,false); if(a[0]===0) return 'Different';
+  const b=nameMatch(p1,p2,true);  if(b[0]===0) return 'Different';
+  return Math.min(a[0],b[0])===1?'Short form':'Spelling';
+}
+
+/* ---------- helpers ---------- */
+function roundHalfEven(x){const f=Math.floor(x),d=x-f; if(Math.abs(d-0.5)<1e-9) return f%2===0?f:f+1; return Math.round(x);}
+function kms(ha){
+  const m=ha/0.0025292850; let k=Math.floor(m/20); const r=m-k*20; let mm=Math.floor(r); let s=roundHalfEven((r-mm)*9);
+  if(s===9){mm++;s=0;} if(mm===20){k++;mm=0;}
+  return `${k}K-${mm}M-${s}S`;
+}
+const r6=x=>Math.round(x*1e6)/1e6;
+const pyStrSort=(a,b)=>a<b?-1:a>b?1:0;
+function cell(v){
+  if(v===null||v===undefined) return '';
+  if(typeof v==='number') return Number.isInteger(v)?String(v):String(v);
+  return String(v).trim();
+}
+
+/* ---------- reading sheets ---------- */
+function findHeader(rows,must){
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const r=(rows[i]||[]).map(x=>String(x??'').trim().toLowerCase());
+    if(must.every(m=>r.includes(m.toLowerCase()))) return i;
+  }
+  return -1;
+}
+function toObjects(rows,h){
+  const head=rows[h].map(x=>String(x??'').trim());
+  const out=[];
+  for(let i=h+1;i<rows.length;i++){
+    const r=rows[i]; if(!r||r.every(x=>x===null||x===undefined||String(x).trim()==='')) continue;
+    const o={}; head.forEach((k,j)=>{ if(k) o[k]=r[j]; }); out.push(o);
+  }
+  return out;
+}
+const BUCKET_COLS=['BucketId','OwnerName','IdentifierName','SurveyNumber','FarmLandPlotId','OwnerExtent'];
+const AGRI_COLS=['Farmland Plot Id','Khewat No','Khata No','Survey Number','Owner Name'];
+function detect(rows){
+  if(findHeader(rows,BUCKET_COLS)>=0) return 'bucket';
+  if(findHeader(rows,AGRI_COLS)>=0) return 'agri';
   return null;
 }
 
-function isMissing(v) {
-  if (v === null || v === undefined) return true;
-  const s = String(v).trim().toUpperCase();
-  return s === '' || s === 'NULL' || s === 'N/A' || s === 'NA' || s === 'NONE' || s === '#N/A' || s === '-';
-}
+/* ---------- main analysis ---------- */
+async function analyse(bucketRows,agriRows,progress){
+  progress=progress||(()=>{});
+  const tick=()=>new Promise(r=>setTimeout(r,0));
+  const bh=findHeader(bucketRows,BUCKET_COLS); if(bh<0) throw new Error('Bucket file: columns '+BUCKET_COLS.join(', ')+' not found');
+  const ah=findHeader(agriRows,AGRI_COLS);     if(ah<0) throw new Error('AgriStack file: columns '+AGRI_COLS.join(', ')+' not found');
+  /* Bucket IDs: some villages have plain numbers (1, 2, 3 …), others long codes such as
+     ff19760a-3597-47c8-…  For codes, each bucket gets a serial number (in file order) for the page,
+     and the real code is kept as the key that is saved to the Google Sheet. */
+  const raw=toObjects(bucketRows,bh).filter(o=>cell(o.BucketId)!=='');
+  const numeric=raw.every(o=>/^\d+$/.test(cell(o.BucketId)));
+  const serial=new Map(), UID=new Map();
+  if(!numeric) raw.forEach(o=>{const k=cell(o.BucketId); if(!serial.has(k)){serial.set(k,serial.size+1); UID.set(serial.size,k);}});
+  const df=raw.map(o=>({
+    b:numeric?parseInt(cell(o.BucketId),10):serial.get(cell(o.BucketId)), name:cell(o.OwnerName), par:cell(o.IdentifierName),
+    sv:cell(o.SurveyNumber), pl:cell(o.FarmLandPlotId), ext:parseFloat(o.OwnerExtent)||0 }));
+  const agri=toObjects(agriRows,ah).filter(o=>cell(o['Farmland Plot Id'])!=='');
+  const A=new Map(agri.map(o=>[cell(o['Farmland Plot Id']),o]));
+  const village=cell((agri.find(o=>cell(o['Village Name']))||{})['Village Name']);
+  const villageCode=cell((agri.find(o=>cell(o['Land Village Code']))||{})['Land Village Code']);
 
-/* ============================================================
-   NAME NORMALISATION + FUZZY MATCH
-   ============================================================ */
-function normalize(s) {
-  if (!s) return '';
-  let x = String(s);
-  // Strip Unicode weirdness: zero-width joiners, BOM, non-breaking / ideographic spaces
-  x = x.replace(/[\u200B-\u200D\uFEFF]/g, '');
-  x = x.replace(/[\u00A0\u3000]/g, ' ');
-  x = x.toLowerCase().trim();
-  // strip punctuation, keep spaces
-  x = x.replace(/[^\w\s]/g, ' ');
-  // expand common J&K abbreviations
-  const REPL = [
-    [/\bmoh?d\b\.?/g, 'mohammad'],
-    [/\bmuhd\b\.?/g, 'mohammad'],
-    [/\bmohammed\b/g, 'mohammad'],
-    [/\bmuhammad\b/g, 'mohammad'],
-    [/\bmuhammed\b/g, 'mohammad'],
-    [/\bgh\b\.?/g, 'ghulam'],
-    [/\bgulam\b/g, 'ghulam'],
-    [/\bghulaam\b/g, 'ghulam'],
-    [/\babd\b\.?/g, 'abdul'],
-    [/\bab\b\.?/g, 'abdul'],
-    [/\babdool\b/g, 'abdul'],
-    [/\brehman\b/g, 'rahman'],
-    [/\brehmaan\b/g, 'rahman'],
-    [/\brehamaan\b/g, 'rahman'],
-    [/\bahmed\b/g, 'ahmad'],
-    [/\bbasheer\b/g, 'bashir'],
-    [/\bhusa?in\b/g, 'hussain'],
-    [/\bhussein\b/g, 'hussain'],
-    [/\bshabir\b/g, 'shabbir'],
-    [/\bjabar\b/g, 'jabbar'],
-    [/\bmehdi\b/g, 'mahdi'],
-    // Kashmiri "Mrs." honorific — many spellings all mean the same word
-    [/\b(mst|musmat|masmat|mussamat|musamat|mussammat|mosammat)\b\.?/g, 'musammat'],
-  ];
-  for (const [rx, rep] of REPL) x = x.replace(rx, rep);
-  // strip relation markers
-  x = x.replace(/\bs\s*o\b|\bd\s*o\b|\bw\s*o\b|\bson\s+of\b|\bdaughter\s+of\b|\bwife\s+of\b/g, ' ');
-  // collapse whitespace
-  x = x.replace(/\s+/g, ' ').trim();
-  return x;
-}
+  /* versions per bucket */
+  const byB=new Map();
+  df.forEach(r=>{ if(!byB.has(r.b)) byB.set(r.b,[]); byB.get(r.b).push(r); });
+  const ids=[...byB.keys()].sort((a,b)=>a-b);
+  const B=new Map();
+  for(const id of ids){
+    const rows=byB.get(id), groups=new Map();
+    rows.forEach(r=>{const k=strict(r.name)+'|'+strict(r.par); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(r);});
+    const mode=arr=>{const c=new Map(); arr.forEach(x=>c.set(x,(c.get(x)||0)+1)); let best=null,bc=-1; for(const [k,v] of c){ if(v>bc||(v===bc&&k<best)){best=k;bc=v;} } return best;};
+    const vs=[...groups.values()].map(g=>({name:mode(g.map(r=>r.name)),par:mode(g.map(r=>r.par)),n:g.length,
+      sv:g.map(r=>r.sv),pl:g.map(r=>r.pl),ext:g.reduce((a,r)=>a+r.ext,0)}));
+    vs.sort((x,y)=>(y.n-x.n)||(y.ext-x.ext));
+    B.set(id,{v:vs,rows});
+  }
+  progress('Checking names within each bucket',0.05); await tick();
+  let lastT0=Date.now();
 
-// Jaro similarity
-function jaro(s1, s2) {
-  if (s1 === s2) return 1;
-  const len1 = s1.length, len2 = s2.length;
-  if (!len1 || !len2) return 0;
-  const matchDist = Math.max(0, Math.floor(Math.max(len1, len2) / 2) - 1);
-  const m1 = new Array(len1).fill(false);
-  const m2 = new Array(len2).fill(false);
-  let matches = 0;
-  for (let i = 0; i < len1; i++) {
-    const start = Math.max(0, i - matchDist);
-    const end = Math.min(i + matchDist + 1, len2);
-    for (let j = start; j < end; j++) {
-      if (m2[j]) continue;
-      if (s1[i] !== s2[j]) continue;
-      m1[i] = true; m2[j] = true; matches++; break;
+  /* logic 1 – within bucket */
+  const RANK={Identical:0,Spelling:1,'Short form':2,Different:3};
+  const VM={Principal:0,Identical:0,Spelling:1,'Short form':2,Different:3};
+  let wb=0;
+  for(const [id,d] of B){
+    if((++wb & 63)===0 && Date.now()-lastT0>150){ progress(`Checking names within each bucket (${wb} of ${B.size})`,0.05*wb/B.size); await tick(); lastT0=Date.now(); }
+    const base=d.v[0]; let worst=0;
+    for(const v of d.v){
+      const others=d.v.filter(u=>u!==v);
+      const best=others.length?Math.min(...others.map(u=>RANK[personMatch(v.name,v.par,u.name,u.par)])):0;
+      v.vs=v===base?'Principal':personMatch(v.name,v.par,base.name,base.par);
+      worst=Math.max(worst,best);
+    }
+    d.st=d.v.length>1?worst:0;
+    const g=d.rows, rem=[];
+    const z=g.filter(r=>r.ext===0).length; if(z) rem.push(`${z} plot(s) with zero extent`);
+    if(g.some(r=>['na','n/a','nil','-'].includes(r.par.toLowerCase()))) rem.push("Parentage recorded as 'na'");
+    if(g.some(r=>/sarkar|maqbooza|khalsa|shamilat|kahcharai/.test(r.name.toLowerCase()))) rem.push('Non-individual / possession entry');
+    d.rem=rem.join('; ');
+  }
+
+  /* logic 2 – across buckets */
+  const V=[]; for(const [id,d] of B) d.v.forEach(v=>V.push([id,v]));
+  const edges=new Map(); const li=s=>tokens(s).every(t=>GENERIC.has(t)||t.length<=3);
+  /* Two owners can only be the same person if their parentage is compatible, so we first group the
+     versions by parentage, find which parentages can match, and compare only inside those pairs.
+     Same result as comparing every pair, but far faster for large villages. */
+  const pIndex=new Map(), pList=[], pMembers=[];
+  V.forEach(([b,v],i)=>{ let k=pIndex.get(v.par); if(k===undefined){k=pList.length; pIndex.set(v.par,k); pList.push(v.par); pMembers.push([]);} pMembers[k].push(i); });
+  const P=pList.length, pc=pList.map(canon), ps=pList.map(strict);
+  const pairs=[]; let lastT=Date.now();
+  for(let a=0;a<P;a++){
+    pairs.push([a,a]);
+    for(let c=a+1;c<P;c++){
+      if(quick(pc[a],pc[c])<0.5) continue;
+      if(ps[a]===ps[c]||nameMatch(pList[a],pList[c],true)[0]>0||nameMatch(pList[c],pList[a],true)[0]>0) pairs.push([a,c]);
+    }
+    if(Date.now()-lastT>150){ progress(`Comparing parentage (${a+1} of ${P})`,0.05+0.25*(a+1)/P); await tick(); lastT=Date.now(); }
+  }
+  const rank=new Map();                                   // earliest pair wins when confidence is equal (as before)
+  let work=0, doneW=0;
+  for(const [a,c] of pairs) work+=a===c?pMembers[a].length*(pMembers[a].length-1)/2:pMembers[a].length*pMembers[c].length;
+  for(let q=0;q<pairs.length;q++){
+    const [a,c]=pairs[q], A=pMembers[a], Cm=pMembers[c];
+    for(let x=0;x<A.length;x++) for(let y=(a===c?x+1:0);y<Cm.length;y++){
+      if((++doneW & 4095)===0 && Date.now()-lastT>150){ progress(`Finding the same person in different buckets (${Math.round(doneW/1000).toLocaleString()}k of ${Math.round(work/1000).toLocaleString()}k checks)`,0.3+0.6*doneW/work); await tick(); lastT=Date.now(); }
+      let i=A[x], j=Cm[y]; if(i>j){const t=i;i=j;j=t;}
+      const [b1,v1]=V[i], [b2,v2]=V[j]; if(b1===b2) continue;
+      if(quick(canon(v1.par),canon(v2.par))<0.5) continue;
+      const m=personMatch(v1.name,v1.par,v2.name,v2.par); if(m==='Different') continue;
+      const key=Math.min(b1,b2)+'|'+Math.max(b1,b2);
+      const s2=new Set(v2.sv), shared=[...new Set(v1.sv.filter(x=>s2.has(x)))].sort(pyStrSort);
+      let conf=m==='Identical'?3:m==='Spelling'?((nameMatch(v1.name,v2.name,false)[0]===3&&nameMatch(v1.par,v2.par,false)[0]===3)?3:2):1;
+      if((li(v1.name)&&li(v1.par))||(li(v2.name)&&li(v2.par))) conf=Math.min(conf,m!=='Short form'?2:1);
+      if(shared.length) conf=Math.min(3,conf+1);
+      const e=edges.get(key), r=i*V.length+j;
+      if(!e||e.conf<conf||(e.conf===conf&&r<rank.get(key))){ edges.set(key,{a:Math.min(b1,b2),c:Math.max(b1,b2),conf,m,shared}); rank.set(key,r); }
     }
   }
-  if (!matches) return 0;
-  let t = 0, k = 0;
-  for (let i = 0; i < len1; i++) {
-    if (!m1[i]) continue;
-    while (!m2[k]) k++;
-    if (s1[i] !== s2[k]) t++;
-    k++;
-  }
-  t /= 2;
-  return ((matches / len1) + (matches / len2) + ((matches - t) / matches)) / 3;
-}
+  const parent=new Map(ids.map(x=>[x,x]));
+  const find=x=>{while(parent.get(x)!==x){parent.set(x,parent.get(parent.get(x))); x=parent.get(x);} return x;};
+  for(const e of edges.values()) if(e.conf>=2) parent.set(find(e.a),find(e.c));
+  const comp=new Map(); ids.forEach(x=>{const r=find(x); if(!comp.has(r)) comp.set(r,[]); comp.get(r).push(x);});
+  const groups=[...comp.values()].filter(g=>g.length>1).map(g=>g.sort((a,b)=>a-b)).sort((a,b)=>a[0]-b[0]);
+  const gid=new Map(); groups.forEach((g,i)=>g.forEach(b=>gid.set(b,i+1)));
+  const CONF={3:'High',2:'Medium',1:'Low'};
+  const grpOut=groups.map((g,i)=>{
+    let mn=4; const ev=[];
+    for(let x=0;x<g.length;x++) for(let y=x+1;y<g.length;y++){const e=edges.get(g[x]+'|'+g[y]); if(e&&e.conf>=2){mn=Math.min(mn,e.conf); ev.push([e.a,e.c,CONF[e.conf],e.m,e.shared]);}}
+    const sets=g.map(b=>new Set(B.get(b).rows.map(r=>r.sv)));
+    const cs=[...sets[0]].filter(s=>sets.every(S=>S.has(s))).sort(pyStrSort);
+    return {id:i+1,c:mn<4?CONF[mn]:'',b:g,ev,cs};
+  });
+  progress('Linking khewat and khata',0.93); await tick();
 
-// Jaro-Winkler (bonus for shared prefix, up to 4 chars)
-function jaroWinkler(s1, s2) {
-  const j = jaro(s1, s2);
-  let prefix = 0;
-  const maxP = Math.min(4, s1.length, s2.length);
-  for (let i = 0; i < maxP; i++) {
-    if (s1[i] === s2[i]) prefix++; else break;
-  }
-  return j + prefix * 0.1 * (1 - j);
+  /* khewat / khata, extras, mismatches */
+  let missing=0;
+  const buckets=ids.map(id=>{
+    const d=B.get(id), ext=d.rows.reduce((a,r)=>a+r.ext,0);
+    const v=d.v.map(v=>{
+      const kw=v.pl.map(p=>{const o=A.get(p); if(!o){missing++; return '';} return cell(o['Khewat No']);});
+      const kt=v.pl.map(p=>{const o=A.get(p); return o?cell(o['Khata No']):'';});
+      return [v.name,v.par,v.n,v.sv,v.pl,r6(v.ext),VM[v.vs],kw,kt];
+    });
+    const o={id,st:d.st,v,e:r6(ext),k:kms(ext),r:d.rem,g:gid.get(id)||0};
+    if(!numeric) o.u=UID.get(id);
+    return o;
+  });
+  const bp=new Set(df.map(r=>r.pl));
+  const extra=agri.filter(o=>!bp.has(cell(o['Farmland Plot Id']))).map(o=>[cell(o['Owner Name']),cell(o['Identifier Name']),cell(o['Survey Number']),
+    cell(o['Khewat No']),cell(o['Khata No']),Math.round((parseFloat(o['Owner Extent (Hectare)'])||0)*1e4)/1e4,cell(o['Land Holder Type']),cell(o['Farmland Plot Id'])]);
+  const mismatch=[];
+  buckets.forEach(b=>b.v.forEach(v=>v[3].forEach((sv,i)=>{const o=A.get(v[4][i]); if(o){const s2=cell(o['Survey Number']); if(s2!==sv) mismatch.push([b.id,sv,s2,cell(o['Khewat No']),cell(o['Khata No']),v[4][i]]);}})));
+  const uniq=k=>new Set(agri.map(o=>cell(o[k])).filter(Boolean)).size;
+  const totalExt=df.reduce((a,r)=>a+r.ext,0);
+  const data={buckets,groups:grpOut,plots:df.length,ext:Math.round(totalExt*1e5)/1e5,kms:kms(totalExt),
+    extra,mismatch,khewats:uniq('Khewat No'),khatas:uniq('Khata No'),agriPlots:agri.length};
+  const summary={village,villageCode,buckets:buckets.length,plots:df.length,missingInAgri:missing,
+    groups:grpOut.length,groupBuckets:grpOut.reduce((a,g)=>a+g.b.length,0),
+    st:[0,1,2,3].map(s=>buckets.filter(b=>b.st===s).length),extra:extra.length,mismatch:mismatch.length,
+    agriVillages:[...new Set(agri.map(o=>cell(o['Village Name'])).filter(Boolean))]};
+  progress('Done',1);
+  return {data,summary};
 }
+return {analyse,detect};
+})();
+if(typeof module!=='undefined') module.exports=BucketEngine;
 
-function similarity(name1, par1, name2, par2) {
-  const nameSim = jaroWinkler(name1, name2);
-  const parSim  = jaroWinkler(par1, par2);
-  // Both must clear the threshold — weight them equally
-  return { nameSim, parSim, min: Math.min(nameSim, parSim) };
-}
+</script>
+<script>
+const TPL_B64="PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xLCB2aWV3cG9ydC1maXQ9Y292ZXIiPgo8dGl0bGU+RmFybWVyIElEIHN0YXR1cyBieSBidWNrZXQ8L3RpdGxlPgo8bGluayByZWw9InByZWNvbm5lY3QiIGhyZWY9Imh0dHBzOi8vZm9udHMuZ29vZ2xlYXBpcy5jb20iPgo8bGluayByZWw9InByZWNvbm5lY3QiIGhyZWY9Imh0dHBzOi8vZm9udHMuZ3N0YXRpYy5jb20iIGNyb3Nzb3JpZ2luPgo8bGluayBocmVmPSJodHRwczovL2ZvbnRzLmdvb2dsZWFwaXMuY29tL2NzczI/ZmFtaWx5PUlCTStQbGV4K1NhbnM6d2dodEA0MDA7NTAwOzYwMCZmYW1pbHk9SUJNK1BsZXgrU2VyaWY6d2dodEA2MDAmZGlzcGxheT1zd2FwIiByZWw9InN0eWxlc2hlZXQiPgo8c2NyaXB0PgovKiA9PT09PT09PT09PT0gU0VUVElOR1Mg4oCTIGVkaXQgdGhlc2UgbGluZXMgb25seSA9PT09PT09PT09PT0gKi8KY29uc3QgVklMTEFHRSA9IF9fVklMTEFHRV9fOyAgIC8vIHZpbGxhZ2UgbmFtZSDigJMgbXVzdCBtYXRjaCB0aGUgdmlsbGFnZSByZWdpc3RlcmVkIGluIHRoZSBhZG1pbiBwYWdlCmNvbnN0IFRFSFNJTCA9IF9fVEVIU0lMX187ICAgICAvLyB0ZWhzaWwg4oCTIG11c3QgbWF0Y2ggdG9vCmNvbnN0IEFQUFNfU0NSSVBUX1VSTCA9IF9fVVJMX187ICAvLyBwYXN0ZSB0aGUgQXBwcyBTY3JpcHQgL2V4ZWMgVVJMIHRvIHNhdmUgdG8gR29vZ2xlIFNoZWV0cwpsZXQgUkVBU09OUyA9IFtdOyAgICAgICAgICAgICAgICAvLyBmaWxsZWQgZnJvbSB0aGUgJ1JlYXNvbnMnIHRhYiBvZiB0aGUgR29vZ2xlIFNoZWV0IGFmdGVyIGxvZ2luCjwvc2NyaXB0Pgo8c3R5bGU+Cjpyb290ewogIC0taW5rOiMxYzJhMzY7IC0taW5rLTI6IzRhNWE2NzsgLS1pbmstMzojN2M4YTk1OwogIC0tcGFwZXI6I2Y1ZjZmMzsgLS1jYXJkOiNmZmY7IC0tbGluZTojZGRlMmRjOyAtLWxpbmUtMjojZWNlZWU5OwogIC0tZmllbGQ6IzJmNmI0ZjsgLS1maWVsZC1iZzojZTZmMGVhOwogIC0tYW1iZXI6IzhhNWExMDsgLS1hbWJlci1iZzojZmJmMWRjOwogIC0tYnJpY2s6I2E4NDMyYTsgLS1icmljay1iZzojZjhlM2RjOwogIC0tc2xhdGU6IzQzNjA3YTsgLS1zbGF0ZS1iZzojZTNlYWYxOwogIC0tb3JhbmdlOiNiODVhMGQ7IC0tb3JhbmdlLWJnOiNmZGVjZDk7IC0tb3JhbmdlLTI6I2YzYzlhMDsKICAtLWhpdDojZmZmMWE4OwogIC0tZm9jdXM6IzJhNmZkYjsgLS1zdWJtaXQtYmc6I2YxZjRmODsgLS1zdWJtaXQtbGluZTojYjljNmQ0OyAtLWNhcmQtbGluZTojYzlkMGQ2Owp9CkBtZWRpYSAocHJlZmVycy1jb2xvci1zY2hlbWU6IGRhcmspewogIDpyb290Om5vdChbZGF0YS10aGVtZT0ibGlnaHQiXSl7CiAgICAtLWluazojZTZlYmVmOyAtLWluay0yOiNiM2JlYzc7IC0taW5rLTM6Izg2OTM5ZDsKICAgIC0tcGFwZXI6IzE0MWExZjsgLS1jYXJkOiMxYzI0MmI7IC0tbGluZTojMmYzYTQzOyAtLWxpbmUtMjojMjUyZjM3OwogICAgLS1maWVsZDojNmNjMTlhOyAtLWZpZWxkLWJnOiMxZTMzMjk7IC0tYW1iZXI6I2YwYzY3NzsgLS1hbWJlci1iZzojM2EyZDE3OwogICAgLS1icmljazojZWY4Zjc2OyAtLWJyaWNrLWJnOiMzYjIzMWQ7IC0tc2xhdGU6IzlhYjhkMzsgLS1zbGF0ZS1iZzojMjIzMDNkOyAtLXN1Ym1pdC1iZzojMWYyODMwOyAtLXN1Ym1pdC1saW5lOiMzZjRmNWQ7IC0tY2FyZC1saW5lOiMzYTQ2NTA7IC0tb3JhbmdlOiNmNWE0NWM7IC0tb3JhbmdlLWJnOiMzYTI3MTU7IC0tb3JhbmdlLTI6IzZiNDMyMDsgLS1oaXQ6IzVhNGQxMjsKICB9Cn0KKntib3gtc2l6aW5nOmJvcmRlci1ib3h9Cjpyb290e3BhZGRpbmctdG9wOmVudihzYWZlLWFyZWEtaW5zZXQtdG9wLDBweCk7cGFkZGluZy1ib3R0b206ZW52KHNhZmUtYXJlYS1pbnNldC1ib3R0b20sMHB4KX0KaHRtbHtzY3JvbGwtcGFkZGluZy10b3A6Y2FsYyhlbnYoc2FmZS1hcmVhLWluc2V0LXRvcCwwcHgpICsgMTMwcHgpfQpib2R5e21hcmdpbjowO2JhY2tncm91bmQ6dmFyKC0tcGFwZXIpO2NvbG9yOnZhcigtLWluayk7Zm9udDoxNXB4LzEuNSAiSUJNIFBsZXggU2FucyIsc3lzdGVtLXVpLC1hcHBsZS1zeXN0ZW0sIlNlZ29lIFVJIixSb2JvdG8sc2Fucy1zZXJpZjstd2Via2l0LWZvbnQtc21vb3RoaW5nOmFudGlhbGlhc2VkfQpidXR0b24saW5wdXQsc2VsZWN0e2ZvbnQ6aW5oZXJpdDtjb2xvcjppbmhlcml0fQo6Zm9jdXMtdmlzaWJsZXtvdXRsaW5lOjJweCBzb2xpZCB2YXIoLS1mb2N1cyk7b3V0bGluZS1vZmZzZXQ6MnB4fQoud3JhcHttYXgtd2lkdGg6OTgwcHg7bWFyZ2luOjAgYXV0bztwYWRkaW5nOjAgMThweH0KCmhlYWRlcntwYWRkaW5nOjI2cHggMCAxNnB4fQpoMXtmb250OjYwMCAyN3B4LzEuMTUgIklCTSBQbGV4IFNlcmlmIixHZW9yZ2lhLHNlcmlmO21hcmdpbjowfQouc3Vie2NvbG9yOnZhcigtLWluay0yKTttYXJnaW46NnB4IDAgMH0KLm1ldGF7ZGlzcGxheTpmbGV4O2ZsZXgtd3JhcDp3cmFwO2dhcDoxMHB4IDE4cHg7YWxpZ24taXRlbXM6Y2VudGVyO21hcmdpbi10b3A6MTRweH0KLnJldmlld2Vye2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7Z2FwOjhweH0KLnJldmlld2VyIGxhYmVse2NvbG9yOnZhcigtLWluay0yKTtmb250LXNpemU6MTRweH0KLnJldmlld2VyIGlucHV0e2JvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7YmFja2dyb3VuZDp2YXIoLS1jYXJkKTtib3JkZXItcmFkaXVzOjhweDtwYWRkaW5nOjdweCAxMHB4O3dpZHRoOjIxMHB4fQoucmV2aWV3ZXIgaW5wdXQubmVlZHtib3JkZXItY29sb3I6dmFyKC0tYnJpY2spO2JveC1zaGFkb3c6MCAwIDAgM3B4IHZhcigtLWJyaWNrLWJnKX0KLnN5bmN7Zm9udC1zaXplOjEzcHg7Y29sb3I6dmFyKC0taW5rLTMpO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7Z2FwOjZweH0KLnN5bmMgaXt3aWR0aDo4cHg7aGVpZ2h0OjhweDtib3JkZXItcmFkaXVzOjUwJTtiYWNrZ3JvdW5kOnZhcigtLWluay0zKX0KLnN5bmMub2sgaXtiYWNrZ3JvdW5kOnZhcigtLWZpZWxkKX0gLnN5bmMuYnVzeSBpe2JhY2tncm91bmQ6I2M5OGExYn0gLnN5bmMuZXJyIGl7YmFja2dyb3VuZDp2YXIoLS1icmljayl9Ci5saW5rYnRue2JhY2tncm91bmQ6bm9uZTtib3JkZXI6MDtwYWRkaW5nOjA7Y29sb3I6dmFyKC0tc2xhdGUpO3RleHQtZGVjb3JhdGlvbjp1bmRlcmxpbmU7Y3Vyc29yOnBvaW50ZXI7Zm9udC1zaXplOjEzcHh9Cgouc3RhdHN7ZGlzcGxheTpmbGV4O2ZsZXgtd3JhcDp3cmFwO2dhcDo4cHggMjZweDttYXJnaW4tdG9wOjE4cHg7Zm9udC12YXJpYW50LW51bWVyaWM6dGFidWxhci1udW1zfQouc3RhdCBie2ZvbnQtc2l6ZToyMnB4O2ZvbnQtd2VpZ2h0OjYwMDtkaXNwbGF5OmJsb2NrO2xpbmUtaGVpZ2h0OjEuMX0KLnN0YXQgc3Bhbntmb250LXNpemU6MTNweDtjb2xvcjp2YXIoLS1pbmstMil9Ci5zdGF0LmcgYntjb2xvcjp2YXIoLS1maWVsZCl9IC5zdGF0Lm4gYntjb2xvcjp2YXIoLS1icmljayl9Ci5iaWdiYXJ7aGVpZ2h0OjhweDtib3JkZXItcmFkaXVzOjRweDtiYWNrZ3JvdW5kOnZhcigtLWxpbmUpO292ZXJmbG93OmhpZGRlbjtkaXNwbGF5OmZsZXg7bWFyZ2luLXRvcDoxMnB4O21heC13aWR0aDo1MjBweH0KLmJpZ2JhciBpe2Rpc3BsYXk6YmxvY2s7aGVpZ2h0OjEwMCV9CgouYmFye3Bvc2l0aW9uOnN0aWNreTt0b3A6MDt6LWluZGV4OjU7YmFja2dyb3VuZDp2YXIoLS1wYXBlcik7Ym9yZGVyLWJvdHRvbToxcHggc29saWQgdmFyKC0tbGluZSk7cGFkZGluZzoxMHB4IDB9Ci50b29sc3tkaXNwbGF5OmZsZXg7ZmxleC13cmFwOndyYXA7Z2FwOjhweDthbGlnbi1pdGVtczpjZW50ZXJ9Ci5zbW9kZXtkaXNwbGF5OmZsZXg7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47YmFja2dyb3VuZDp2YXIoLS1jYXJkKX0KLnNtb2RlIGJ1dHRvbntib3JkZXI6MDtiYWNrZ3JvdW5kOm5vbmU7cGFkZGluZzo4cHggMTJweDtmb250LXNpemU6MTRweDtjdXJzb3I6cG9pbnRlcjtjb2xvcjp2YXIoLS1pbmstMik7d2hpdGUtc3BhY2U6bm93cmFwfQouc21vZGUgYnV0dG9uK2J1dHRvbntib3JkZXItbGVmdDoxcHggc29saWQgdmFyKC0tbGluZSl9Ci5zbW9kZSBidXR0b25bYXJpYS1wcmVzc2VkPSJ0cnVlIl17YmFja2dyb3VuZDp2YXIoLS1pbmspO2NvbG9yOnZhcigtLXBhcGVyKX0KLnFpbmZve2ZvbnQtc2l6ZToxM3B4O2NvbG9yOnZhcigtLWluay0yKTtwYWRkaW5nLXRvcDo2cHh9Ci5xaW5mbzplbXB0eXtkaXNwbGF5Om5vbmV9Ci5xaW5mbyBie2NvbG9yOnZhcigtLWluayl9Ci5zZWFyY2h7Zm9udC1zaXplOjE2cHg7ZmxleDoxIDEgMjIwcHg7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO2JvcmRlci1yYWRpdXM6OHB4O3BhZGRpbmc6OHB4IDEycHh9Ci5jaGlwc3tkaXNwbGF5OmZsZXg7Z2FwOjZweDtvdmVyZmxvdy14OmF1dG87c2Nyb2xsYmFyLXdpZHRoOm5vbmU7cGFkZGluZy10b3A6OHB4fQouY2hpcHM6Oi13ZWJraXQtc2Nyb2xsYmFye2Rpc3BsYXk6bm9uZX0KLmNoaXB7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO2JvcmRlci1yYWRpdXM6OTk5cHg7cGFkZGluZzo1cHggMTJweDtmb250LXNpemU6MTNweDtjdXJzb3I6cG9pbnRlcjtjb2xvcjp2YXIoLS1pbmstMik7d2hpdGUtc3BhY2U6bm93cmFwfQouY2hpcCBlbXtmb250LXN0eWxlOm5vcm1hbDtjb2xvcjp2YXIoLS1pbmstMyk7bWFyZ2luLWxlZnQ6NHB4fQouY2hpcFthcmlhLXByZXNzZWQ9InRydWUiXXtiYWNrZ3JvdW5kOnZhcigtLWluayk7Ym9yZGVyLWNvbG9yOnZhcigtLWluayk7Y29sb3I6dmFyKC0tcGFwZXIpfQouY2hpcFthcmlhLXByZXNzZWQ9InRydWUiXSBlbXtjb2xvcjp2YXIoLS1wYXBlcik7b3BhY2l0eTouN30KCm1haW57cGFkZGluZy10b3A6MTRweH0KLmdyb3Vwe2JvcmRlci1sZWZ0OjVweCBzb2xpZCB2YXIoLS1vcmFuZ2UpO2JhY2tncm91bmQ6dmFyKC0tb3JhbmdlLWJnKTtib3JkZXItcmFkaXVzOjEwcHg7cGFkZGluZzoxMHB4IDEwcHggMnB4O21hcmdpbjowIDAgMTRweH0KLmdyb3VwLm1lZHtib3JkZXItbGVmdC1zdHlsZTpkYXNoZWR9Ci5naGVhZHtmb250LXNpemU6MTRweDtjb2xvcjp2YXIoLS1vcmFuZ2UpO3BhZGRpbmc6MCA0cHggOHB4fQouZ2hlYWQgYntmb250LXdlaWdodDo2MDB9Ci53YXJubGluZXtmb250LXNpemU6MTNweDtjb2xvcjp2YXIoLS1icmljayk7cGFkZGluZzowIDRweCA4cHh9Ci53YXJubGluZTplbXB0eXtkaXNwbGF5Om5vbmV9CgouYmt7YmFja2dyb3VuZDp2YXIoLS1jYXJkKTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWNhcmQtbGluZSk7Ym9yZGVyLXJhZGl1czoxMnB4O21hcmdpbjowIDAgMThweDtkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOjFmciBtaW5tYXgoMjgwcHgsMzYwcHgpO2JveC1zaGFkb3c6MCAxcHggMnB4IHJnYmEoMjAsMzAsNDAsLjA2KSwwIDNweCAxMHB4IHJnYmEoMjAsMzAsNDAsLjA1KX0KLmJrLmZpbGxlZHtib3JkZXItY29sb3I6dmFyKC0tY2FyZC1saW5lKX0KLmluZm97cGFkZGluZzoxNHB4IDE2cHg7bWluLXdpZHRoOjB9Ci50b3B7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6MTBweDtmbGV4LXdyYXA6d3JhcH0KLnVpZHttYXJnaW4tdG9wOjJweDtmb250LXNpemU6MTFweDtjb2xvcjp2YXIoLS1pbmstMyk7Zm9udC1mYW1pbHk6dWktbW9ub3NwYWNlLENvbnNvbGFzLG1vbm9zcGFjZTt3b3JkLWJyZWFrOmJyZWFrLWFsbH0KLmJpZHtmb250LXdlaWdodDo2MDA7Zm9udC12YXJpYW50LW51bWVyaWM6dGFidWxhci1udW1zO2JhY2tncm91bmQ6dmFyKC0taW5rKTtjb2xvcjp2YXIoLS1wYXBlcik7Ym9yZGVyLXJhZGl1czo2cHg7cGFkZGluZzoycHggOXB4O2ZvbnQtc2l6ZToxNHB4fQoubm17Zm9udC13ZWlnaHQ6NjAwO2ZvbnQtc2l6ZToxNnB4fQoucGFye2NvbG9yOnZhcigtLWluay0yKTtmb250LXNpemU6MTRweH0KLnBhcjo6YmVmb3Jle2NvbnRlbnQ6IlBhcmVudGFnZSAiO2NvbG9yOnZhcigtLWluay0zKX0KLmZhY3Rze2ZvbnQtc2l6ZToxM3B4O2NvbG9yOnZhcigtLWluay0zKTttYXJnaW4tdG9wOjNweDtmb250LXZhcmlhbnQtbnVtZXJpYzp0YWJ1bGFyLW51bXN9Ci5zdnN7Zm9udC1zaXplOjEzcHg7Y29sb3I6dmFyKC0taW5rLTMpO3dvcmQtYnJlYWs6YnJlYWstd29yZH0KLnN2cyBtYXJre2JhY2tncm91bmQ6bm9uZTtjb2xvcjp2YXIoLS1vcmFuZ2UpO2JvcmRlci1ib3R0b206MnB4IHNvbGlkIHZhcigtLW9yYW5nZS0yKTtwYWRkaW5nOjAgMXB4fQouc3ZzIG1hcmsuaywuZm91bmQgbWFya3tiYWNrZ3JvdW5kOnZhcigtLWhpdCk7Y29sb3I6dmFyKC0taW5rKTtib3JkZXI6MDtib3JkZXItcmFkaXVzOjNweDtwYWRkaW5nOjAgNHB4O2ZvbnQtd2VpZ2h0OjYwMH0KLmtre21hcmdpbi10b3A6NnB4O2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47Z2FwOjNweH0KLmtye2Rpc3BsYXk6ZmxleDtmbGV4LXdyYXA6d3JhcDtnYXA6MnB4IDEwcHg7Zm9udC1zaXplOjEzcHg7cGFkZGluZzozcHggOHB4O2JvcmRlci1sZWZ0OjRweCBzb2xpZCB2YXIoLS1rYyk7YmFja2dyb3VuZDpjb2xvci1taXgoaW4gc3JnYix2YXIoLS1rYykgOSUsdHJhbnNwYXJlbnQpO2JvcmRlci1yYWRpdXM6MCA1cHggNXB4IDA7Y29sb3I6dmFyKC0ta2MpfQoua2x7Zm9udC13ZWlnaHQ6NjAwO3doaXRlLXNwYWNlOm5vd3JhcH0KLmtze2NvbG9yOnZhcigtLWtjKTt3b3JkLWJyZWFrOmJyZWFrLXdvcmR9Ci5rciAua3MgbWFya3tjb2xvcjp2YXIoLS1rYyl9Ci5jMHstLWtjOiMyYjVkOWJ9LmMxey0ta2M6IzdhM2Y5ZH0uYzJ7LS1rYzojMWY3YTc0fS5jM3stLWtjOiNhMzM0NWZ9LmM0ey0ta2M6IzViNmIxZn0uYzV7LS1rYzojM2Y0ZmIwfS5jNnstLWtjOiM3YTUyMzB9LmM3ey0ta2M6IzRhNWE2N30KQG1lZGlhIChwcmVmZXJzLWNvbG9yLXNjaGVtZTogZGFyayl7OnJvb3Q6bm90KFtkYXRhLXRoZW1lPSJsaWdodCJdKSAuYzB7LS1rYzojOGZiNmVhfTpyb290Om5vdChbZGF0YS10aGVtZT0ibGlnaHQiXSkgLmMxey0ta2M6I2M4OWJlNH06cm9vdDpub3QoW2RhdGEtdGhlbWU9ImxpZ2h0Il0pIC5jMnstLWtjOiM3ZmQwYzh9OnJvb3Q6bm90KFtkYXRhLXRoZW1lPSJsaWdodCJdKSAuYzN7LS1rYzojZWM5YWI5fTpyb290Om5vdChbZGF0YS10aGVtZT0ibGlnaHQiXSkgLmM0ey0ta2M6I2JmY2Y3YX06cm9vdDpub3QoW2RhdGEtdGhlbWU9ImxpZ2h0Il0pIC5jNXstLWtjOiNhM2FlZjB9OnJvb3Q6bm90KFtkYXRhLXRoZW1lPSJsaWdodCJdKSAuYzZ7LS1rYzojZDlhZTg2fTpyb290Om5vdChbZGF0YS10aGVtZT0ibGlnaHQiXSkgLmM3ey0ta2M6I2IzYmVjN319Ci5mb3VuZHtmb250LXNpemU6MTNweDttYXJnaW4tdG9wOjZweDtjb2xvcjp2YXIoLS1pbmstMil9Ci5mb3VuZCBkaXZ7cGFkZGluZzoxcHggMH0KLmJrLm1hdGNoe2JveC1zaGFkb3c6MCAwIDAgMnB4IHZhcigtLWhpdCl9Ci5ndWlkZXtmb250LXNpemU6MTNweDttYXJnaW4tdG9wOjhweDtwYWRkaW5nOjZweCAxMHB4O2JvcmRlci1yYWRpdXM6NnB4fQouZ3VpZGUubGlua3tiYWNrZ3JvdW5kOnZhcigtLW9yYW5nZS1iZyk7Y29sb3I6dmFyKC0tb3JhbmdlKX0KLmd1aWRlLndhcm57YmFja2dyb3VuZDp2YXIoLS1icmljay1iZyk7Y29sb3I6dmFyKC0tYnJpY2spfQouZ3VpZGUuc29mdHtiYWNrZ3JvdW5kOnZhcigtLWxpbmUtMik7Y29sb3I6dmFyKC0taW5rLTIpfQouZ3VpZGUgdWx7bWFyZ2luOjRweCAwIDA7cGFkZGluZy1sZWZ0OjE4cHh9CgouZW50cnl7bWFyZ2luOjEwcHg7YWxpZ24tc2VsZjpzdGFydDtib3JkZXI6MS41cHggc29saWQgdmFyKC0tc3VibWl0LWxpbmUpO2JhY2tncm91bmQ6dmFyKC0tc3VibWl0LWJnKTtwYWRkaW5nOjEycHggMTRweDtkaXNwbGF5OmZsZXg7ZmxleC1kaXJlY3Rpb246Y29sdW1uO2dhcDo4cHg7Ym9yZGVyLXJhZGl1czo5cHh9Ci5lbnRyeS5zLWdlbntib3JkZXItY29sb3I6Y29sb3ItbWl4KGluIHNyZ2IsdmFyKC0tZmllbGQpIDQ1JSx0cmFuc3BhcmVudCk7YmFja2dyb3VuZDpjb2xvci1taXgoaW4gc3JnYix2YXIoLS1maWVsZCkgNiUsdmFyKC0tY2FyZCkpfQouZW50cnkucy1ub3R7Ym9yZGVyLWNvbG9yOmNvbG9yLW1peChpbiBzcmdiLHZhcigtLWJyaWNrKSA0NSUsdHJhbnNwYXJlbnQpO2JhY2tncm91bmQ6Y29sb3ItbWl4KGluIHNyZ2IsdmFyKC0tYnJpY2spIDYlLHZhcigtLWNhcmQpKX0KLmVsYWJlbHtmb250LXNpemU6MTJweDtmb250LXdlaWdodDo2MDA7bGV0dGVyLXNwYWNpbmc6LjA0ZW07dGV4dC10cmFuc2Zvcm06dXBwZXJjYXNlO2NvbG9yOnZhcigtLWluayl9Ci5lbGFiZWwgc3Bhbntmb250LXdlaWdodDo1MDA7dGV4dC10cmFuc2Zvcm06bm9uZTtsZXR0ZXItc3BhY2luZzowO2NvbG9yOnZhcigtLWluay0zKTttYXJnaW4tbGVmdDo2cHh9Ci5lbnRyeSAuc2J0biwuZW50cnkgLnJidG57YmFja2dyb3VuZDp2YXIoLS1jYXJkKX0KLmVudHJ5LnMtZ2VuIC5lbGFiZWx7Y29sb3I6dmFyKC0tZmllbGQpfSAuZW50cnkucy1ub3QgLmVsYWJlbHtjb2xvcjp2YXIoLS1icmljayl9Ci5zZWd7ZGlzcGxheTpmbGV4O2dhcDo0cHh9Ci5zYnRue2ZsZXg6MTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpO2JhY2tncm91bmQ6dmFyKC0tY2FyZCk7Ym9yZGVyLXJhZGl1czo3cHg7cGFkZGluZzo3cHggNnB4O2N1cnNvcjpwb2ludGVyO2ZvbnQtc2l6ZToxNHB4O2NvbG9yOnZhcigtLWluay0yKTt3aGl0ZS1zcGFjZTpub3dyYXB9Ci5zYnRuOmhvdmVye2JvcmRlci1jb2xvcjp2YXIoLS1pbmstMyl9Ci5yYnRue2ZsZXg6MCAwIGF1dG87Ym9yZGVyOjFweCBkYXNoZWQgdmFyKC0taW5rLTMpO2JhY2tncm91bmQ6bm9uZTtib3JkZXItcmFkaXVzOjdweDtwYWRkaW5nOjdweCAxMHB4O2N1cnNvcjpwb2ludGVyO2ZvbnQtc2l6ZToxNHB4O2NvbG9yOnZhcigtLWluay0yKX0KLnJidG46aG92ZXI6bm90KDpkaXNhYmxlZCl7Ym9yZGVyLXN0eWxlOnNvbGlkO2NvbG9yOnZhcigtLWluayl9Ci5yYnRuOmRpc2FibGVke29wYWNpdHk6LjM1O2N1cnNvcjpkZWZhdWx0fQouc2J0bi5vbi5nZW57YmFja2dyb3VuZDp2YXIoLS1maWVsZCk7Ym9yZGVyLWNvbG9yOnZhcigtLWZpZWxkKTtjb2xvcjojZmZmfQouc2J0bi5vbi5ub3R7YmFja2dyb3VuZDp2YXIoLS1icmljayk7Ym9yZGVyLWNvbG9yOnZhcigtLWJyaWNrKTtjb2xvcjojZmZmfQouZW50cnkgaW5wdXQsLmVudHJ5IHNlbGVjdHt3aWR0aDoxMDAlO2JvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7YmFja2dyb3VuZDp2YXIoLS1wYXBlcik7Ym9yZGVyLXJhZGl1czo3cHg7cGFkZGluZzo3cHggMTBweDtmb250LXNpemU6MTRweH0KLmVudHJ5IGlucHV0LmZpZHtmb250LXZhcmlhbnQtbnVtZXJpYzp0YWJ1bGFyLW51bXM7bGV0dGVyLXNwYWNpbmc6LjAyZW19Ci51c2V7Zm9udC1zaXplOjEzcHg7Y29sb3I6dmFyKC0tb3JhbmdlKX0KLnVzZSBidXR0b257Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1vcmFuZ2UpO2JhY2tncm91bmQ6bm9uZTtjb2xvcjp2YXIoLS1vcmFuZ2UpO2JvcmRlci1yYWRpdXM6NnB4O3BhZGRpbmc6MnB4IDhweDtjdXJzb3I6cG9pbnRlcjtmb250LXNpemU6MTJweDttYXJnaW4tbGVmdDo0cHh9Ci5zdGFtcHtmb250LXNpemU6MTJweDtjb2xvcjp2YXIoLS1pbmstMyl9Ci5jbGVhcntiYWNrZ3JvdW5kOm5vbmU7Ym9yZGVyOjA7Y29sb3I6dmFyKC0taW5rLTMpO2ZvbnQtc2l6ZToxMnB4O2N1cnNvcjpwb2ludGVyO3RleHQtZGVjb3JhdGlvbjp1bmRlcmxpbmU7cGFkZGluZzowO2FsaWduLXNlbGY6ZmxleC1zdGFydH0KCi5tb3Jle2Rpc3BsYXk6YmxvY2s7bWFyZ2luOjZweCBhdXRvIDMwcHg7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO2JvcmRlci1yYWRpdXM6OHB4O3BhZGRpbmc6OXB4IDE4cHg7Y3Vyc29yOnBvaW50ZXJ9Ci5lbXB0eXtwYWRkaW5nOjQwcHggMDt0ZXh0LWFsaWduOmNlbnRlcjtjb2xvcjp2YXIoLS1pbmstMyl9Ci50b2FzdHtwb3NpdGlvbjpmaXhlZDtsZWZ0OjUwJTtib3R0b206Y2FsYygyMHB4ICsgZW52KHNhZmUtYXJlYS1pbnNldC1ib3R0b20sMHB4KSk7dHJhbnNmb3JtOnRyYW5zbGF0ZVgoLTUwJSk7YmFja2dyb3VuZDp2YXIoLS1pbmspO2NvbG9yOnZhcigtLXBhcGVyKTtwYWRkaW5nOjEwcHggMTZweDtib3JkZXItcmFkaXVzOjhweDtmb250LXNpemU6MTRweDtvcGFjaXR5OjA7cG9pbnRlci1ldmVudHM6bm9uZTt0cmFuc2l0aW9uOm9wYWNpdHkgLjJzfQoudG9hc3Quc2hvd3tvcGFjaXR5OjF9CmRpYWxvZ3tib3JkZXI6MDtib3JkZXItcmFkaXVzOjEycHg7cGFkZGluZzowO21heC13aWR0aDo3NjBweDt3aWR0aDpjYWxjKDEwMCUgLSAyNHB4KTttYXgtaGVpZ2h0Ojg2dmg7YmFja2dyb3VuZDp2YXIoLS1jYXJkKTtjb2xvcjp2YXIoLS1pbmspO2JveC1zaGFkb3c6MCAyMHB4IDYwcHggcmdiYSgwLDAsMCwuMjUpfQpkaWFsb2c6OmJhY2tkcm9we2JhY2tncm91bmQ6cmdiYSgyMCwyNiwzMSwuNDUpfQouZGxne3BhZGRpbmc6MThweCAyMHB4IDIycHh9Ci5kaGVhZHtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2dhcDoxMnB4O3Bvc2l0aW9uOnN0aWNreTt0b3A6MDtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO3BhZGRpbmctYm90dG9tOjZweH0KLmRoZWFkIGgye2ZvbnQ6NjAwIDIwcHgvMS4yICJJQk0gUGxleCBTZXJpZiIsR2VvcmdpYSxzZXJpZjttYXJnaW46MDtmbGV4OjF9Ci5kY2xvc2V7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO2JvcmRlci1yYWRpdXM6N3B4O3BhZGRpbmc6NXB4IDEycHg7Y3Vyc29yOnBvaW50ZXJ9Ci5kbGcgaDN7Zm9udC1zaXplOjE1cHg7bWFyZ2luOjE4cHggMCA0cHh9Ci5kbGcgcHttYXJnaW46NHB4IDA7Y29sb3I6dmFyKC0taW5rLTIpO2ZvbnQtc2l6ZToxNHB4O21heC13aWR0aDo3MGNofQoubXR7d2lkdGg6MTAwJTtib3JkZXItY29sbGFwc2U6Y29sbGFwc2U7Zm9udC1zaXplOjEzcHg7bWFyZ2luLXRvcDo2cHg7Zm9udC12YXJpYW50LW51bWVyaWM6dGFidWxhci1udW1zfQoubXQgdGh7dGV4dC1hbGlnbjpsZWZ0O2ZvbnQtd2VpZ2h0OjUwMDtjb2xvcjp2YXIoLS1pbmstMyk7Ym9yZGVyLWJvdHRvbToxcHggc29saWQgdmFyKC0tbGluZSk7cGFkZGluZzo1cHggNnB4fQoubXQgdGR7Ym9yZGVyLWJvdHRvbToxcHggc29saWQgdmFyKC0tbGluZS0yKTtwYWRkaW5nOjVweCA2cHg7dmVydGljYWwtYWxpZ246dG9wfQoubXQgdHIuZmxhZyB0ZHtiYWNrZ3JvdW5kOnZhcigtLW9yYW5nZS1iZyl9Ci5tdHdyYXB7b3ZlcmZsb3cteDphdXRvfQpkZXRhaWxzLmNhdHtib3JkZXItdG9wOjFweCBzb2xpZCB2YXIoLS1saW5lLTIpO3BhZGRpbmc6NnB4IDB9CmRldGFpbHMuY2F0IHN1bW1hcnl7Y3Vyc29yOnBvaW50ZXI7Zm9udC1zaXplOjE0cHh9Ci5hY2N0e2ZvbnQtc2l6ZToxNHB4O2NvbG9yOnZhcigtLWluay0yKX0KLmFjY3QgYntjb2xvcjp2YXIoLS1pbmspfQoubG9naW57cG9zaXRpb246Zml4ZWQ7aW5zZXQ6MDt6LWluZGV4OjUwO2JhY2tncm91bmQ6dmFyKC0tcGFwZXIpO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjtwYWRkaW5nOjIwcHh9Ci5sb2dpbltoaWRkZW5de2Rpc3BsYXk6bm9uZX0KLmxib3h7d2lkdGg6MTAwJTttYXgtd2lkdGg6MzYwcHg7YmFja2dyb3VuZDp2YXIoLS1jYXJkKTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWNhcmQtbGluZSk7Ym9yZGVyLXJhZGl1czoxNHB4O3BhZGRpbmc6MjZweCAyNHB4O2JveC1zaGFkb3c6MCA0cHggMjRweCByZ2JhKDIwLDMwLDQwLC4wOCl9Ci5sYm94IGgye2ZvbnQ6NjAwIDI0cHgvMS4yICJJQk0gUGxleCBTZXJpZiIsR2VvcmdpYSxzZXJpZjttYXJnaW46MH0KLmxzdWJ7Y29sb3I6dmFyKC0taW5rLTIpO21hcmdpbjo0cHggMCAxNnB4fQoubGJveCBsYWJlbHtkaXNwbGF5OmJsb2NrO2ZvbnQtc2l6ZToxNHB4O2ZvbnQtd2VpZ2h0OjYwMDttYXJnaW46MTJweCAwIDRweH0KLmxib3ggaW5wdXR7d2lkdGg6MTAwJTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpO2JvcmRlci1yYWRpdXM6OHB4O3BhZGRpbmc6MTBweCAxMnB4O2JhY2tncm91bmQ6dmFyKC0tY2FyZCk7Zm9udC1zaXplOjE2cHh9Ci5sYnRue3dpZHRoOjEwMCU7bWFyZ2luLXRvcDoxOHB4O2JvcmRlcjowO2JhY2tncm91bmQ6dmFyKC0taW5rKTtjb2xvcjp2YXIoLS1wYXBlcik7Ym9yZGVyLXJhZGl1czo4cHg7cGFkZGluZzoxMXB4O2ZvbnQtd2VpZ2h0OjYwMDtjdXJzb3I6cG9pbnRlcn0KLmxidG46ZGlzYWJsZWR7b3BhY2l0eTouNX0KLmx2aWV3e2Rpc3BsYXk6YmxvY2s7bWFyZ2luOjZweCBhdXRvIDA7YmFja2dyb3VuZDpub25lO2JvcmRlcjowO2NvbG9yOnZhcigtLXNsYXRlKTt0ZXh0LWRlY29yYXRpb246dW5kZXJsaW5lO2N1cnNvcjpwb2ludGVyO2ZvbnQtc2l6ZToxNHB4fQoubG9naW5idG57Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1pbmspO2JhY2tncm91bmQ6dmFyKC0taW5rKTtjb2xvcjp2YXIoLS1wYXBlcik7Ym9yZGVyLXJhZGl1czo4cHg7cGFkZGluZzo2cHggMTRweDtmb250LXdlaWdodDo2MDA7Y3Vyc29yOnBvaW50ZXI7Zm9udC1zaXplOjE0cHh9Ci5sZXJye2NvbG9yOnZhcigtLWJyaWNrKTtmb250LXNpemU6MTRweDttaW4taGVpZ2h0OjEuMmVtO21hcmdpbjoxMHB4IDAgMH0KZm9vdGVye2NvbG9yOnZhcigtLWluay0zKTtmb250LXNpemU6MTNweDtwYWRkaW5nOjEwcHggMCA0MHB4fQpAbWVkaWEgKG1heC13aWR0aDo3MjBweCl7CiAgaDF7Zm9udC1zaXplOjIycHh9IGhlYWRlcntwYWRkaW5nLXRvcDoxOHB4fQogIC5ia3tncmlkLXRlbXBsYXRlLWNvbHVtbnM6MWZyfQogIC5lbnRyeXttYXJnaW46MCAxMHB4IDEwcHh9CiAgLmdyb3Vwe3BhZGRpbmc6OHB4IDZweCAxcHh9Cn0KQG1lZGlhIChwcmVmZXJzLXJlZHVjZWQtbW90aW9uOnJlZHVjZSl7LnRvYXN0e3RyYW5zaXRpb246bm9uZX19Cjwvc3R5bGU+CjxzdHlsZT4KLnN0YXRze2dhcDoxMHB4IDMwcHh9Ci5zdGF0LnAgYntjb2xvcjp2YXIoLS1pbmstMyl9Ci5zdGF0Lmlke3BhZGRpbmctbGVmdDoyNnB4O2JvcmRlci1sZWZ0OjFweCBzb2xpZCB2YXIoLS1saW5lKX0KLnN0YXQuaWQgYntjb2xvcjp2YXIoLS1zbGF0ZSl9Ci5zdGF0IHNtYWxse2Rpc3BsYXk6YmxvY2s7Zm9udC1zaXplOjEycHg7Y29sb3I6dmFyKC0taW5rLTMpfQoubGVnZW5ke2Rpc3BsYXk6ZmxleDtmbGV4LXdyYXA6d3JhcDtnYXA6NHB4IDE2cHg7Zm9udC1zaXplOjEycHg7Y29sb3I6dmFyKC0taW5rLTMpO21hcmdpbi10b3A6NnB4fQoubGVnZW5kIGl7ZGlzcGxheTppbmxpbmUtYmxvY2s7d2lkdGg6MTBweDtoZWlnaHQ6MTBweDtib3JkZXItcmFkaXVzOjJweDttYXJnaW4tcmlnaHQ6NXB4O3ZlcnRpY2FsLWFsaWduOi0xcHh9Ci5nbW9kZXtkaXNwbGF5OmZsZXg7ZmxleC13cmFwOndyYXA7Z2FwOjZweDthbGlnbi1pdGVtczpjZW50ZXI7cGFkZGluZzowIDRweCAxMHB4fQouZ21vZGUgc3Bhbntmb250LXNpemU6MTNweDtjb2xvcjp2YXIoLS1pbmstMil9Ci5tYnRue2JvcmRlcjoxcHggc29saWQgdmFyKC0tb3JhbmdlKTtiYWNrZ3JvdW5kOnZhcigtLWNhcmQpO2NvbG9yOnZhcigtLW9yYW5nZSk7Ym9yZGVyLXJhZGl1czo3cHg7cGFkZGluZzo1cHggMTBweDtmb250LXNpemU6MTNweDtjdXJzb3I6cG9pbnRlcjt3aGl0ZS1zcGFjZTpub3dyYXB9Ci5tYnRuLm9ue2JhY2tncm91bmQ6dmFyKC0tb3JhbmdlKTtjb2xvcjojZmZmfQouZ2VudHJ5e2JhY2tncm91bmQ6dmFyKC0tY2FyZCk7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1vcmFuZ2UpO2JvcmRlci1yYWRpdXM6MTBweDttYXJnaW46MCAwIDEwcHg7cGFkZGluZzoxMnB4IDE0cHg7ZGlzcGxheTpncmlkO2dyaWQtdGVtcGxhdGUtY29sdW1uczoxZnIgbWlubWF4KDI4MHB4LDM2MHB4KTtnYXA6MTBweH0KLmdlbnRyeSAuZ3N1bXtmb250LXNpemU6MTRweDtjb2xvcjp2YXIoLS1pbmstMil9Ci5nZW50cnkgLmdzdW0gYntjb2xvcjp2YXIoLS1pbmspfQouZ2VudHJ5IC5lbnRyeXttYXJnaW46MH0KLmJrLmNvdmVyZWR7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOjFmcn0KLmJrLmNvdmVyZWQgLmVudHJ5e2Rpc3BsYXk6bm9uZX0KLmNvdntmb250LXNpemU6MTNweDttYXJnaW4tdG9wOjhweDtjb2xvcjp2YXIoLS1vcmFuZ2UpfQouY292Lmd7Y29sb3I6dmFyKC0tZmllbGQpfSAuY292Lm57Y29sb3I6dmFyKC0tYnJpY2spfQoubmlkc3tkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2dhcDo4cHg7Zm9udC1zaXplOjEzcHg7Y29sb3I6dmFyKC0taW5rLTIpfQoubmlkcyBzZWxlY3R7d2lkdGg6YXV0b30KQG1lZGlhIChtYXgtd2lkdGg6NzIwcHgpey5nZW50cnl7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOjFmcn0uc3RhdC5pZHtwYWRkaW5nLWxlZnQ6MDtib3JkZXItbGVmdDowfX0KPC9zdHlsZT4KPC9oZWFkPgo8Ym9keT4KPGhlYWRlciBjbGFzcz0id3JhcCI+CiAgPGgxPkZhcm1lciBJRCBzdGF0dXMgYnkgYnVja2V0PHNwYW4gaWQ9InZuYW1lIj48L3NwYW4+PC9oMT4KICA8cCBjbGFzcz0ic3ViIiBpZD0idG90YWxzIj48L3A+CiAgPGRpdiBjbGFzcz0ibWV0YSI+CiAgICA8c3BhbiBjbGFzcz0iYWNjdCIgaWQ9ImFjY3QiPjwvc3Bhbj4KICAgIDxzcGFuIGNsYXNzPSJzeW5jIiBpZD0ic3luYyI+PGk+PC9pPjxzcGFuPjwvc3Bhbj48L3NwYW4+CiAgICA8YnV0dG9uIGNsYXNzPSJsaW5rYnRuIiBpZD0iY3N2Ij5Eb3dubG9hZCBhbGwgYnVja2V0cyAoQ1NWKTwvYnV0dG9uPgogICAgPGJ1dHRvbiBjbGFzcz0ibGlua2J0biIgaWQ9Im1pc2MiPk1pc2NlbGxhbmVvdXMgaW5mb3JtYXRpb248L2J1dHRvbj4KICA8L2Rpdj4KICA8ZGl2IGNsYXNzPSJzdGF0cyIgaWQ9InN0YXRzIj48L2Rpdj4KICA8ZGl2IGNsYXNzPSJiaWdiYXIiIGlkPSJiaWdiYXIiPjwvZGl2PgogIDxkaXYgY2xhc3M9ImxlZ2VuZCI+PHNwYW4+PGkgc3R5bGU9ImJhY2tncm91bmQ6dmFyKC0tZmllbGQpIj48L2k+QnVja2V0cyBjbGFpbWVkPC9zcGFuPjxzcGFuPjxpIHN0eWxlPSJiYWNrZ3JvdW5kOnZhcigtLWxpbmUpIj48L2k+QnVja2V0cyBub3QgY2xhaW1lZDwvc3Bhbj48c3Bhbj48aSBzdHlsZT0iYmFja2dyb3VuZDp2YXIoLS1vcmFuZ2UpIj48L2k+Q2hlY2sgaWYgc2FtZSBwZXJzb24gaW4gbW9yZSB0aGFuIG9uZSBidWNrZXQ8L3NwYW4+PC9kaXY+CjwvaGVhZGVyPgoKPGRpdiBjbGFzcz0iYmFyIj48ZGl2IGNsYXNzPSJ3cmFwIj4KICA8ZGl2IGNsYXNzPSJ0b29scyI+CiAgICA8ZGl2IGNsYXNzPSJzbW9kZSIgcm9sZT0iZ3JvdXAiIGFyaWEtbGFiZWw9IlNlYXJjaCBieSI+CiAgICAgIDxidXR0b24gZGF0YS1tPSJraGFzcmEiIGFyaWEtcHJlc3NlZD0idHJ1ZSI+S2hhc3JhIE5vLjwvYnV0dG9uPjxidXR0b24gZGF0YS1tPSJuYW1lIiBhcmlhLXByZXNzZWQ9ImZhbHNlIj5OYW1lPC9idXR0b24+CiAgICA8L2Rpdj4KICAgIDxpbnB1dCBjbGFzcz0ic2VhcmNoIiBpZD0icSIgdHlwZT0ic2VhcmNoIiBhdXRvY29tcGxldGU9Im9mZiIgc3BlbGxjaGVjaz0iZmFsc2UiPgogIDwvZGl2PgogIDxkaXYgY2xhc3M9InFpbmZvIiBpZD0icWluZm8iIGFyaWEtbGl2ZT0icG9saXRlIj48L2Rpdj4KICA8ZGl2IGNsYXNzPSJjaGlwcyIgaWQ9ImNoaXBzIj48L2Rpdj4KPC9kaXY+PC9kaXY+Cgo8bWFpbiBjbGFzcz0id3JhcCI+PGRpdiBpZD0ibGlzdCI+PC9kaXY+PC9tYWluPgo8Zm9vdGVyIGNsYXNzPSJ3cmFwIj5SZWNvcmQgZm9yIGV2ZXJ5IGJ1Y2tldCB3aGV0aGVyIGEgRmFybWVyIElEIGhhcyBiZWVuIGdlbmVyYXRlZC4gQnVja2V0cyBpbiBhbiBvcmFuZ2UgYmxvY2sgYXBwZWFyIHRvIGJlbG9uZyB0byBvbmUgcGVyc29uOiBjaG9vc2UgIk9uZSBGYXJtZXIgSUQgZm9yIGFsbCIgdG8gcmVjb3JkIHRoZW0gdG9nZXRoZXIsIHNvIHRoZXkgY291bnQgYXMgb25lIEZhcm1lciBJRC4gQSByZWQgbm90ZSBtZWFucyBvbmUgYnVja2V0IG1heSBob2xkIG1vcmUgdGhhbiBvbmUgcGVyc29uLiBOb3RoaW5nIGhhcyBiZWVuIG1lcmdlZCBvbiB0aGUgcG9ydGFsLjwvZm9vdGVyPgo8ZGl2IGNsYXNzPSJ0b2FzdCIgaWQ9InRvYXN0IiByb2xlPSJzdGF0dXMiIGFyaWEtbGl2ZT0icG9saXRlIj48L2Rpdj4KPGRpdiBjbGFzcz0ibG9naW4iIGlkPSJsb2dpbiIgaGlkZGVuPgogIDxmb3JtIGNsYXNzPSJsYm94IiBpZD0ibGZvcm0iIGF1dG9jb21wbGV0ZT0ib24iPgogICAgPGgyPkZhcm1lciBJRCBzdGF0dXM8L2gyPgogICAgPHAgY2xhc3M9ImxzdWIiIGlkPSJsc3ViIj48L3A+CiAgICA8bGFiZWwgZm9yPSJsdSI+VXNlcm5hbWU8L2xhYmVsPjxpbnB1dCBpZD0ibHUiIGF1dG9jb21wbGV0ZT0idXNlcm5hbWUiIGF1dG9jYXBpdGFsaXplPSJub25lIiBzcGVsbGNoZWNrPSJmYWxzZSIgcmVxdWlyZWQ+CiAgICA8bGFiZWwgZm9yPSJscCI+UGFzc3dvcmQ8L2xhYmVsPjxpbnB1dCBpZD0ibHAiIHR5cGU9InBhc3N3b3JkIiBhdXRvY29tcGxldGU9ImN1cnJlbnQtcGFzc3dvcmQiIHJlcXVpcmVkPgogICAgPGJ1dHRvbiBjbGFzcz0ibGJ0biIgaWQ9ImxidG4iIHR5cGU9InN1Ym1pdCI+TG9nIGluPC9idXR0b24+CiAgICA8cCBjbGFzcz0ibGVyciIgaWQ9ImxlcnIiIHJvbGU9ImFsZXJ0Ij48L3A+CiAgICA8YnV0dG9uIHR5cGU9ImJ1dHRvbiIgY2xhc3M9Imx2aWV3IiBpZD0ibHZpZXciPkp1c3QgdmlldyDigJMgbm8gbG9naW48L2J1dHRvbj4KICA8L2Zvcm0+CjwvZGl2Pgo8ZGlhbG9nIGlkPSJtaXNjRGxnIiBhcmlhLWxhYmVsbGVkYnk9Im1pc2NUaXRsZSI+PGRpdiBjbGFzcz0iZGxnIj4KICA8ZGl2IGNsYXNzPSJkaGVhZCI+PGgyIGlkPSJtaXNjVGl0bGUiPk1pc2NlbGxhbmVvdXMgaW5mb3JtYXRpb248L2gyPjxidXR0b24gY2xhc3M9ImRjbG9zZSIgaWQ9Im1pc2NDbG9zZSIgYXJpYS1sYWJlbD0iQ2xvc2UiPkNsb3NlPC9idXR0b24+PC9kaXY+CiAgPGRpdiBpZD0ibWlzY0JvZHkiPjwvZGl2Pgo8L2Rpdj48L2RpYWxvZz4KCjxzY3JpcHQ+CmNvbnN0IERBVEEgPSBfX0RBVEFfXzsKY29uc3QgJD1zPT5kb2N1bWVudC5xdWVyeVNlbGVjdG9yKHMpOwpjb25zdCBlc2M9cz0+U3RyaW5nKHM/PycnKS5yZXBsYWNlKC9bJjw+IiddL2csYz0+KHsnJic6JyZhbXA7JywnPCc6JyZsdDsnLCc+JzonJmd0OycsJyInOicmcXVvdDsnLCInIjonJiMzOTsnfVtjXSkpOwpjb25zdCBCWT1uZXcgTWFwKERBVEEuYnVja2V0cy5tYXAoYj0+W2IuaWQsYl0pKTsKY29uc3QgVUlEUz1uZXcgTWFwKERBVEEuYnVja2V0cy5tYXAoYj0+W1N0cmluZyhiLnU/P2IuaWQpLGIuaWRdKSk7ICAgICAgLy8gcmVhbCBidWNrZXQgSUQgKGFzIHNhdmVkIGluIHRoZSBzaGVldCkg4oaSIG51bWJlciBvbiB0aGlzIHBhZ2UKY29uc3QgaWRPZj12PT5VSURTLmdldChTdHJpbmcodikudHJpbSgpKTsKY29uc3QgR1I9bmV3IE1hcChEQVRBLmdyb3Vwcy5tYXAoZz0+W2cuaWQsZ10pKTsKY29uc3QgU1RBVFVTPXtnZW46J0dlbmVyYXRlZCcsbm90OidOb3QgZ2VuZXJhdGVkJ307CmNvbnN0IHBsb3RzT2Y9Yj0+Yi52LnJlZHVjZSgoYSx2KT0+YSt2WzJdLDApOwpjb25zdCBrbXNQPWs9PmsucmVwbGFjZSgvSy0vLCcgSyAnKS5yZXBsYWNlKC9NLS8sJyBNICcpLnJlcGxhY2UoL1MkLywnIFMnKTsKY29uc3QgU1RPUkU9J2Zhcm1lcklkQnlCdWNrZXQ6JytWSUxMQUdFKyhEQVRBLmJ1Y2tldHNbMF0mJkRBVEEuYnVja2V0c1swXS51Pyc6JytEQVRBLmJ1Y2tldHMubGVuZ3RoKyc6JytEQVRBLmJ1Y2tldHNbMF0udTonJyk7CmNvbnN0IGRyb3BSZW1hcms9cj0+KHJ8fCcnKS5zcGxpdCgnOyAnKS5maWx0ZXIoeD0+eCYmIS9zdXJ2ZXkgbm8vaS50ZXN0KHgpKS5qb2luKCc7ICcpOwoKLyogRTogJ0I8aWQ+JyAtPiBidWNrZXQgZW50cnkge3MsZmlkLHJlYXNvbixub3RlLG4sc2hhcmVkLGJ5LGF0LHN5bmNlZH07ICdHPGlkPicgLT4ge21vZGU6J29uZSd8J3NlcCd9ICovCmxldCBFPXt9Owp0cnl7RT1KU09OLnBhcnNlKGxvY2FsU3RvcmFnZS5nZXRJdGVtKFNUT1JFKXx8J3t9Jyl9Y2F0Y2goZSl7fQpjb25zdCBwZXJzaXN0PSgpPT57dHJ5e2xvY2FsU3RvcmFnZS5zZXRJdGVtKFNUT1JFLEpTT04uc3RyaW5naWZ5KEUpKX1jYXRjaChlKXt9fTsKY29uc3QgZW50PWlkPT5FWydCJytpZF18fHt9Owpjb25zdCBnbW9kZT1naWQ9PkVbJ0cnK2dpZF0/Lm1vZGV8fCdzZXAnOwoKJCgnI3ZuYW1lJykudGV4dENvbnRlbnQ9VklMTEFHRT8nIOKAkyAnK1ZJTExBR0U6Jyc7CmRvY3VtZW50LnRpdGxlPSdGYXJtZXIgSUQgc3RhdHVzIGJ5IGJ1Y2tldCcrJCgnI3ZuYW1lJykudGV4dENvbnRlbnQ7CiQoJyN0b3RhbHMnKS50ZXh0Q29udGVudD1gJHtEQVRBLmJ1Y2tldHMubGVuZ3RofSBidWNrZXRzLCAke0RBVEEucGxvdHMudG9Mb2NhbGVTdHJpbmcoKX0gcGxvdHMsICR7REFUQS5leHQudG9GaXhlZCgyKX0gaGEgKCR7a21zUChEQVRBLmttcyl9KWA7CgovKiAtLS0tLS0tLS0tIGNvdW50aW5nOiBidWNrZXRzIHZzIEZhcm1lciBJRHMgLS0tLS0tLS0tLSAqLwpmdW5jdGlvbiBjb3VudHMoKXsKICBsZXQgZ2VuPTAsbm90PTA7IGNvbnN0IHVuaXRzPW5ldyBNYXAoKTsKICBmb3IoY29uc3QgYiBvZiBEQVRBLmJ1Y2tldHMpewogICAgY29uc3QgZT1lbnQoYi5pZCk7CiAgICBpZihlLnM9PT0nbm90Jykgbm90Kys7CiAgICBpZihlLnMhPT0nZ2VuJykgY29udGludWU7CiAgICBnZW4rKzsKICAgIGNvbnN0IGZpZD0oZS5maWR8fCcnKS50cmltKCkudG9VcHBlckNhc2UoKTsKICAgIGNvbnN0IGtleT1maWQ/J0YnK2ZpZDooZS5zaGFyZWQ/J0cnK2Uuc2hhcmVkOidCJytiLmlkKTsKICAgIGNvbnN0IHU9dW5pdHMuZ2V0KGtleSl8fHtiOjAsbjowfTsgdS5iKys7IHUubj1NYXRoLm1heCh1Lm4sZS5zaGFyZWQ/MTooK2Uubnx8MSkpOyB1bml0cy5zZXQoa2V5LHUpOwogIH0KICBsZXQgaWRzPTAsc2hhcmVkQj0wLHNoYXJlZFU9MCxzcGxpdEI9MCxzcGxpdElkcz0wOwogIGZvcihjb25zdCB1IG9mIHVuaXRzLnZhbHVlcygpKXsgaWRzKz11Lm47IGlmKHUuYj4xKXtzaGFyZWRCKz11LmI7c2hhcmVkVSsrO30gZWxzZSBpZih1Lm4+MSl7c3BsaXRCKys7c3BsaXRJZHMrPXUubjt9IH0KICByZXR1cm4ge1Q6REFUQS5idWNrZXRzLmxlbmd0aCxnZW4sbm90LG9wZW46REFUQS5idWNrZXRzLmxlbmd0aC1nZW4tbm90LGlkcyxzaGFyZWRCLHNoYXJlZFUsc3BsaXRCLHNwbGl0SWRzfTsKfQpmdW5jdGlvbiByZW5kZXJDaGlwcygpeyQoJyNjaGlwcycpLmlubmVySFRNTD1GSUxURVJTLm1hcCgoW2ssbCxmbl0pPT5gPGJ1dHRvbiBjbGFzcz0iY2hpcCIgZGF0YS1mPSIke2t9IiBhcmlhLXByZXNzZWQ9IiR7ZmlsdGVyPT09a30iPiR7bH08ZW0+JHtEQVRBLmJ1Y2tldHMuZmlsdGVyKGZuKS5sZW5ndGh9PC9lbT48L2J1dHRvbj5gKS5qb2luKCcnKTt9CmZ1bmN0aW9uIHN0YXRzKCl7CiAgcmVuZGVyQ2hpcHMoKTsKICBjb25zdCBjPWNvdW50cygpLCBwbD0obix3KT0+YCR7bn0gJHt3fSR7bj09PTE/Jyc6J3MnfWA7CiAgY29uc3Qgbm90Q2xhaW1lZD1jLlQtYy5nZW47ICAgICAgICAgICAgICAgICAgICAgICAvLyBzaW1wbGUgcnVsZTogdG90YWwg4oiSIGNsYWltZWQKICBjb25zdCBkaWZmPWMuZ2VuLWMuaWRzOyAgICAgICAgICAgICAgICAgICAgICAgICAgIC8vIGJ1Y2tldHMgYWJzb3JiZWQgYmVjYXVzZSBvbmUgSUQgY292ZXJzIHNldmVyYWwgYnVja2V0cwogICQoJyNzdGF0cycpLmlubmVySFRNTD1gPGRpdiBjbGFzcz0ic3RhdCI+PGI+JHtjLlR9PC9iPjxzcGFuPnRvdGFsIGJ1Y2tldHM8L3NwYW4+PC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJzdGF0IGciPjxiPiR7Yy5nZW59PC9iPjxzcGFuPmJ1Y2tldHMgY2xhaW1lZDwvc3Bhbj48L2Rpdj4KICAgIDxkaXYgY2xhc3M9InN0YXQgbiI+PGI+JHtub3RDbGFpbWVkfTwvYj48c3Bhbj5idWNrZXRzIG5vdCBjbGFpbWVkPC9zcGFuPjxzbWFsbD50b3RhbCDiiJIgY2xhaW1lZDwvc21hbGw+PC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJzdGF0IGlkIj48Yj4ke2MuaWRzfTwvYj48c3Bhbj5GYXJtZXIgSURzIGdlbmVyYXRlZDwvc3Bhbj48c21hbGw+JHtjLmdlbj8oZGlmZj4wP2Ake3BsKGMuZ2VuLCdidWNrZXQnKX0gY2xhaW1lZCBieSAke3BsKGMuaWRzLCdJRCcpfTogZGlmZmVyZW5jZSAke2RpZmZ9LCBhcyAke3BsKGMuc2hhcmVkQiwnYnVja2V0Jyl9IHNoYXJlICR7cGwoYy5zaGFyZWRVLCdJRCcpfWA6YG9uZSBJRCBwZXIgY2xhaW1lZCBidWNrZXRgKTonJm5ic3A7J308L3NtYWxsPjwvZGl2PmA7CiAgJCgnI2JpZ2JhcicpLmlubmVySFRNTD1gPGkgc3R5bGU9IndpZHRoOiR7Yy5nZW4qMTAwL2MuVH0lO2JhY2tncm91bmQ6dmFyKC0tZmllbGQpIj48L2k+YDsKfQovKiAtLS0tLS0tLS0tIHJlYWQtb25seSBndWlkYW5jZSAtLS0tLS0tLS0tICovCmZ1bmN0aW9uIGd1aWRhbmNlKGIsaW5Hcm91cCl7CiAgY29uc3Qgb3V0PVtdOwogIGlmKGIuZyYmIWluR3JvdXApe2NvbnN0IGc9R1IuZ2V0KGIuZyk7b3V0LnB1c2goYDxkaXYgY2xhc3M9Imd1aWRlIGxpbmsiPkNoZWNrIGlmIHNhbWUgcGVyc29uIGFzIGJ1Y2tldCAke2cuYi5maWx0ZXIoeD0+eCE9PWIuaWQpLmpvaW4oJywgJyl9PzwvZGl2PmApO30KICBpZihiLnN0PT09Mykgb3V0LnB1c2goYDxkaXYgY2xhc3M9Imd1aWRlIHdhcm4iPlRoaXMgYnVja2V0IG1heSBob2xkIG1vcmUgdGhhbiBvbmUgcGVyc29uLiBQbG90cyBhcmUgcmVjb3JkZWQgYXM6PHVsPiR7Yi52Lm1hcCh2PT5gPGxpPiR7ZXNjKHZbMF0pfSAvICR7ZXNjKHZbMV0pfSAoJHt2WzJdfSBwbG90JHt2WzJdPjE/J3MnOicnfSk8L2xpPmApLmpvaW4oJycpfTwvdWw+Q2hlY2sgYmVmb3JlIG1hcmtpbmcgdGhlIHdob2xlIGJ1Y2tldC48L2Rpdj5gKTsKICBlbHNlIGlmKGIuc3Q+MCkgb3V0LnB1c2goYDxkaXYgY2xhc3M9Imd1aWRlIHNvZnQiPkFsc28gd3JpdHRlbiBhcyAke2Iudi5zbGljZSgxKS5tYXAodj0+ZXNjKHZbMF0pKycgLyAnK2VzYyh2WzFdKSkuam9pbignOyAnKX0uIFNhbWUgcGVyc29uLCB3cml0dGVuIGRpZmZlcmVudGx5LjwvZGl2PmApOwogIGNvbnN0IHI9ZHJvcFJlbWFyayhiLnIpOyBpZihyKSBvdXQucHVzaChgPGRpdiBjbGFzcz0iZ3VpZGUgc29mdCI+JHtlc2Mocil9PC9kaXY+YCk7CiAgcmV0dXJuIG91dC5qb2luKCcnKTsKfQpmdW5jdGlvbiBzdGFtcFRleHQoZSl7cmV0dXJuIGUucz9gJHtlc2MoZS5ieXx8JycpfSR7ZS5hdD8nLCAnK25ldyBEYXRlKGUuYXQpLnRvTG9jYWxlU3RyaW5nKFtdLHtkYXRlU3R5bGU6J21lZGl1bScsdGltZVN0eWxlOidzaG9ydCd9KTonJ30keyFlLnN5bmNlZCYmQVBQU19TQ1JJUFRfVVJMPycg4oCTIG5vdCB5ZXQgc2F2ZWQnOicnfWA6Jyd9CmZ1bmN0aW9uIGxpbmtlZElkSGludChiKXsKICBpZighYi5nKSByZXR1cm4gJyc7CiAgY29uc3QgbWluZT0oZW50KGIuaWQpLmZpZHx8JycpLnRyaW0oKTsKICBjb25zdCBpZHM9R1IuZ2V0KGIuZykuYi5maWx0ZXIoeD0+eCE9PWIuaWQpLm1hcCh4PT5beCwoZW50KHgpLmZpZHx8JycpLnRyaW0oKV0pLmZpbHRlcigoWyxmXSk9PmYpOwogIGlmKCFpZHMubGVuZ3RoKSByZXR1cm4gJyc7CiAgY29uc3QgZj1pZHNbMF1bMV07CiAgaWYobWluZSYmbWluZSE9PWYpIHJldHVybiBgPGRpdiBjbGFzcz0idXNlIiBzdHlsZT0iY29sb3I6dmFyKC0tYnJpY2spIj5CdWNrZXQgJHtpZHNbMF1bMF19IGhhcyBhIGRpZmZlcmVudCBJRDogJHtlc2MoZil9PC9kaXY+YDsKICBpZihtaW5lPT09ZikgcmV0dXJuICcnOwogIHJldHVybiBgPGRpdiBjbGFzcz0idXNlIj5CdWNrZXQgJHtpZHNbMF1bMF19IGhhcyBJRCAke2VzYyhmKX08YnV0dG9uIGRhdGEtdXNlPSIke2VzYyhmKX0iPlVzZSBzYW1lIElEPC9idXR0b24+PC9kaXY+YDsKfQoKLyogZW50cnkgcGFuZWw6IHRhcmdldCBpcyAnQjxpZD4nIChvbmUgYnVja2V0KSBvciAnRzxpZD4nIChvbmUgSUQgZm9yIGEgd2hvbGUgZ3JvdXApICovCmZ1bmN0aW9uIGVudHJ5UGFuZWwodGFyZ2V0LGUsb3B0cz17fSl7CiAgY29uc3Qgcz1lLnN8fCcnOwogIHJldHVybiBgPGRpdiBjbGFzcz0iZW50cnkgJHtzPydzLScrczonJ30iIGRhdGEtdD0iJHt0YXJnZXR9Ij4KICAgIDxkaXYgY2xhc3M9ImVsYWJlbCI+RmFybWVyIElEIHN0YXR1cyA8c3Bhbj4ke3M/J3JlY29yZGVkJzonZW50ZXIgaGVyZSd9PC9zcGFuPjwvZGl2PgogICAgPGRpdiBjbGFzcz0ic2VnIiByb2xlPSJncm91cCIgYXJpYS1sYWJlbD0iRmFybWVyIElEIHN0YXR1cyI+CiAgICAgIDxidXR0b24gY2xhc3M9InNidG4gZ2VuICR7cz09PSdnZW4nPydvbic6Jyd9IiBkYXRhLXM9ImdlbiIgYXJpYS1wcmVzc2VkPSIke3M9PT0nZ2VuJ30iPkdlbmVyYXRlZDwvYnV0dG9uPgogICAgICA8YnV0dG9uIGNsYXNzPSJzYnRuIG5vdCAke3M9PT0nbm90Jz8nb24nOicnfSIgZGF0YS1zPSJub3QiIGFyaWEtcHJlc3NlZD0iJHtzPT09J25vdCd9Ij5Ob3QgZ2VuZXJhdGVkPC9idXR0b24+CiAgICAgIDxidXR0b24gY2xhc3M9InJidG4iIGRhdGEtcmVzZXQ9IjEiICR7c3x8ZS5maWR8fGUubm90ZXx8ZS5yZWFzb24/Jyc6J2Rpc2FibGVkJ30gdGl0bGU9IlJlbW92ZSB0aGlzIGVudHJ5Ij5SZXNldDwvYnV0dG9uPgogICAgPC9kaXY+CiAgICAke3M9PT0nbm90Jz9gPHNlbGVjdCBkYXRhLWY9InJlYXNvbiIgcmVxdWlyZWQ+PG9wdGlvbiB2YWx1ZT0iIj5TZWxlY3QgcmVhc29u4oCmPC9vcHRpb24+JHtSRUFTT05TLm1hcChyPT5gPG9wdGlvbiAke2UucmVhc29uPT09cj8nc2VsZWN0ZWQnOicnfT4ke2VzYyhyKX08L29wdGlvbj5gKS5qb2luKCcnKX0ke2UucmVhc29uJiYhUkVBU09OUy5pbmNsdWRlcyhlLnJlYXNvbik/YDxvcHRpb24gdmFsdWU9IiR7ZXNjKGUucmVhc29uKX0iIHNlbGVjdGVkPiR7ZXNjKGUucmVhc29uKX0gKG5vIGxvbmdlciBvbiB0aGUgbGlzdCk8L29wdGlvbj5gOicnfTwvc2VsZWN0PmA6Jyd9CiAgICAke3M9PT0nbm90Jz9gPGlucHV0IGRhdGEtZj0ibm90ZSIgcGxhY2Vob2xkZXI9IlJlbWFya3MgKG9wdGlvbmFsKSIgdmFsdWU9IiR7ZXNjKGUubm90ZXx8JycpfSI+YDonJ30KICAgIDxkaXYgY2xhc3M9InN0YW1wIj4ke3N0YW1wVGV4dChlKX08L2Rpdj4KICA8L2Rpdj5gOwp9CmZ1bmN0aW9uIGNhcmQoYixncm91cCl7CiAgY29uc3QgZT1lbnQoYi5pZCksIGNvdmVyZWQ9Z3JvdXAmJmdtb2RlKGdyb3VwLmlkKT09PSdvbmUnOwogIGNvbnN0IGNzPWdyb3VwP2dyb3VwLmNzOltdOwogIGNvbnN0IGtoPVBMT1RNT0RFW21vZGVdPyhLSElUUy5nZXQoYi5pZCl8fFtdKTpbXTsKICBjb25zdCBraHM9bmV3IFNldChraC5tYXAoaD0+aC5zdikpOwogIGNvbnN0IHBtPW5ldyBNYXAoKTsKICBiLnYuZm9yRWFjaCh2PT52WzNdLmZvckVhY2goKHMsaSk9Pntjb25zdCBrPXZbN11baV0rJ3wnK3ZbOF1baV07IGlmKCFwbS5oYXMoaykpIHBtLnNldChrLHtrdzp2WzddW2ldLGt0OnZbOF1baV0sc3Y6W119KTsgY29uc3QgcD1wbS5nZXQoayk7IGlmKCFwLnN2LmluY2x1ZGVzKHMpKSBwLnN2LnB1c2gocyk7fSkpOwogIGNvbnN0IHBhaXJzPVsuLi5wbS52YWx1ZXMoKV0uc29ydCgoeCx5KT0+KHBhcnNlRmxvYXQoeC5rdyl8fDApLShwYXJzZUZsb2F0KHkua3cpfHwwKXx8KHBhcnNlRmxvYXQoeC5rdCl8fDApLShwYXJzZUZsb2F0KHkua3QpfHwwKSk7CiAgY29uc3QgY292PWNvdmVyZWQ/KGUucz09PSdnZW4nP2A8ZGl2IGNsYXNzPSJjb3YgZyI+Q292ZXJlZCBieSB0aGUgZ3JvdXAncyBGYXJtZXIgSUQ8L2Rpdj5gOmUucz09PSdub3QnP2A8ZGl2IGNsYXNzPSJjb3YgbiI+Tm90IGdlbmVyYXRlZCAoZ3JvdXAgZW50cnkpPC9kaXY+YDpgPGRpdiBjbGFzcz0iY292Ij5SZWNvcmRlZCB3aXRoIHRoZSBncm91cCBlbnRyeSBhYm92ZTwvZGl2PmApOicnOwogIHJldHVybiBgPGFydGljbGUgY2xhc3M9ImJrICR7ZS5zPydmaWxsZWQnOicnfSAke2NvdmVyZWQ/J2NvdmVyZWQnOicnfSAke2toLmxlbmd0aD8nbWF0Y2gnOicnfSIgaWQ9ImIke2IuaWR9Ij4KICAgIDxkaXYgY2xhc3M9ImluZm8iPgogICAgICA8ZGl2IGNsYXNzPSJ0b3AiPjxzcGFuIGNsYXNzPSJiaWQiPkJ1Y2tldCAke2IuaWR9PC9zcGFuPjxzcGFuIGNsYXNzPSJubSI+JHtlc2MoYi52WzBdWzBdKX08L3NwYW4+PC9kaXY+CiAgICAgIDxkaXYgY2xhc3M9InBhciI+JHtlc2MoYi52WzBdWzFdKX08L2Rpdj4ke2IudT9gPGRpdiBjbGFzcz0idWlkIj5BZ3JpU3RhY2sgYnVja2V0IElEICR7ZXNjKGIudSl9PC9kaXY+YDonJ30KICAgICAgPGRpdiBjbGFzcz0ia2siPiR7cGFpcnMubWFwKChwLG4pPT5gPGRpdiBjbGFzcz0ia3IgYyR7biU4fSI+PHNwYW4gY2xhc3M9ImtsIj5LaGV3YXQgJHtlc2MocC5rdyl9LCBLaGF0YSAke2VzYyhwLmt0KX08L3NwYW4+PHNwYW4gY2xhc3M9ImtzIj4ke3Auc3YubWFwKHg9Pmtocy5oYXMoeCk/YDxtYXJrIGNsYXNzPSJrIj4ke2VzYyh4KX08L21hcms+YDpjcy5pbmNsdWRlcyh4KT9gPG1hcmsgdGl0bGU9IlNoYXJlZCB3aXRoIHRoZSBvdGhlciBidWNrZXRzIG9mIHRoaXMgcGVyc29uIj4ke2VzYyh4KX08L21hcms+YDplc2MoeCkpLmpvaW4oJywgJyl9PC9zcGFuPjwvZGl2PmApLmpvaW4oJycpfTwvZGl2PgogICAgICAke2d1aWRhbmNlKGIsISFncm91cCl9JHtjb3Z9CiAgICA8L2Rpdj4KICAgICR7Y292ZXJlZD8nJzplbnRyeVBhbmVsKCdCJytiLmlkLGUse2hpbnQ6Yi5nP2xpbmtlZElkSGludChiKTp1bmRlZmluZWQsbXVsdGk6Yi5zdD09PTM/Yi52Lmxlbmd0aDowfSl9CiAgPC9hcnRpY2xlPmA7Cn0KZnVuY3Rpb24gZ3JvdXBFbnRyeShnKXsKICBjb25zdCBlPWVudChnLmJbMF0pOwogIHJldHVybiBgPGRpdiBjbGFzcz0iZ2VudHJ5Ij4KICAgIDxkaXYgY2xhc3M9ImdzdW0iPjxiPk9uZSBGYXJtZXIgSUQgZm9yIGJ1Y2tldHMgJHtnLmIuam9pbignLCAnKX08L2I+PGJyPkNvdW50cyBhcyAxIEZhcm1lciBJRCBhbmQgJHtnLmIubGVuZ3RofSBidWNrZXRzLjwvZGl2PgogICAgJHtlbnRyeVBhbmVsKCdHJytnLmlkLGUpfQogIDwvZGl2PmA7Cn0KZnVuY3Rpb24gZ3JvdXBCbG9jayhnLHZpc2libGUpewogIGNvbnN0IG1vZGU9Z21vZGUoZy5pZCk7CiAgY29uc3QgaWRzPWcuYi5tYXAoeD0+KGVudCh4KS5maWR8fCcnKS50cmltKCkpLmZpbHRlcihCb29sZWFuKSwgY2xhc2g9bW9kZT09PSdzZXAnJiZuZXcgU2V0KGlkcykuc2l6ZT4xOwogIHJldHVybiBgPHNlY3Rpb24gY2xhc3M9Imdyb3VwICR7Zy5jPT09J01lZGl1bSc/J21lZCc6Jyd9IiBpZD0iZyR7Zy5pZH0iPgogICAgPGRpdiBjbGFzcz0iZ2hlYWQiPjxiPkNoZWNrIGlmIHNhbWUgcGVyc29uPC9iPiBpbiBidWNrZXRzICR7Zy5iLmpvaW4oJywgJyl9PyR7Zy5jcy5sZW5ndGg/YCBUaGV5IHNoYXJlIGtoYXNyYSAke2cuY3MubWFwKGVzYykuam9pbignLCAnKX0uYDonJ30ke2cuYz09PSdNZWRpdW0nPycgU3BlbGxpbmcgZGlmZmVycy4nOicnfTwvZGl2PgogICAgPGRpdiBjbGFzcz0iZ21vZGUiIHJvbGU9Imdyb3VwIiBhcmlhLWxhYmVsPSJIb3cgd2FzIHRoZSBGYXJtZXIgSUQgZ2VuZXJhdGVkIj48c3Bhbj5GYXJtZXIgSUQ6PC9zcGFuPgogICAgICA8YnV0dG9uIGNsYXNzPSJtYnRuICR7bW9kZT09PSdvbmUnPydvbic6Jyd9IiBkYXRhLW1vZGU9Im9uZSIgZGF0YS1nPSIke2cuaWR9IiBhcmlhLXByZXNzZWQ9IiR7bW9kZT09PSdvbmUnfSI+T25lIEZhcm1lciBJRCBmb3IgYWxsICR7Zy5iLmxlbmd0aH08L2J1dHRvbj4KICAgICAgPGJ1dHRvbiBjbGFzcz0ibWJ0biAke21vZGU9PT0nc2VwJz8nb24nOicnfSIgZGF0YS1tb2RlPSJzZXAiIGRhdGEtZz0iJHtnLmlkfSIgYXJpYS1wcmVzc2VkPSIke21vZGU9PT0nc2VwJ30iPlJlY29yZCBlYWNoIGJ1Y2tldCBzZXBhcmF0ZWx5PC9idXR0b24+PC9kaXY+CiAgICAke2NsYXNoP2A8ZGl2IGNsYXNzPSJ3YXJubGluZSI+RGlmZmVyZW50IEZhcm1lciBJRHMgZW50ZXJlZCBmb3IgdGhlc2UgYnVja2V0cy4gQ2hlY2sgd2hldGhlciB0aGV5IGFyZSByZWFsbHkgb25lIHBlcnNvbi48L2Rpdj5gOicnfQogICAgJHttb2RlPT09J29uZSc/Z3JvdXBFbnRyeShnKTonJ30KICAgICR7dmlzaWJsZS5tYXAoYj0+Y2FyZChiLGcpKS5qb2luKCcnKX0KICA8L3NlY3Rpb24+YDsKfQoKLyogLS0tLS0tLS0tLSBsaXN0IC0tLS0tLS0tLS0gKi8KbGV0IGZpbHRlcj0nYWxsJywgcT0nJywgbW9kZT0na2hhc3JhJywgc2hvd249NjA7CmNvbnN0IG5vcm09cz0+U3RyaW5nKHMpLnRvTG93ZXJDYXNlKCkucmVwbGFjZSgvW15hLXowLTkgXS9nLCcnKS5yZXBsYWNlKC9ccysvZywnICcpLnRyaW0oKTsKY29uc3QgTkFNRVRYVD1uZXcgTWFwKERBVEEuYnVja2V0cy5tYXAoYj0+W2IuaWQsbm9ybShiLnYubWFwKHY9PnZbMF0rJyAnK3ZbMV0pLmpvaW4oJyAnKSsoYi51PycgJytiLnU6JycpKV0pKTsKLyogLS0tLSBraGFzcmEgc2VhcmNoIC0tLS0KICAgS2hhc3JhIG51bWJlcnMgYXJlIHdyaXR0ZW4gbWFueSB3YXlzOiAiNjQzLzE1MSIsICI2NDMgLyAxNTEiLCAiMzAgYWxpZiIsICIyNG1pbiIuCiAgIFR5cGluZyA2NDMgZmluZHMgNjQzIGFuZCBldmVyeSA2NDMvLi4uIDsgdHlwaW5nIDE1MSBhbHNvIGZpbmRzIC4uLi8xNTEgOyB0eXBpbmcgNjQzLzE1MSBmaW5kcyBleGFjdGx5IHRoYXQuCiAgIFNldmVyYWwgbnVtYmVycyBjYW4gYmUgZW50ZXJlZCBhdCBvbmNlLCBzZXBhcmF0ZWQgYnkgY29tbWFzLiAqLwpjb25zdCBrbj1zPT5TdHJpbmcocykudG9Mb3dlckNhc2UoKS5yZXBsYWNlKC9ccypbXC9cXC1dXHMqL2csJy8nKS5yZXBsYWNlKC9ccysvZywnICcpLnRyaW0oKTsKZnVuY3Rpb24ga1Njb3JlKHN2LGspewogIGNvbnN0IHM9a24oc3YpOyBpZihzPT09aykgcmV0dXJuIDQ7CiAgY29uc3Qgc2Vncz1zLnNwbGl0KCcvJyksIGhlYWQ9c2Vnc1swXS5zcGxpdCgnICcpWzBdOwogIGlmKHNlZ3NbMF09PT1rfHxoZWFkPT09aykgcmV0dXJuIDM7CiAgaWYoay5pbmNsdWRlcygnLycpJiZzLnN0YXJ0c1dpdGgoaykpIHJldHVybiAyOwogIGlmKHNlZ3Muc29tZSh4PT54PT09a3x8eC5zcGxpdCgnICcpWzBdPT09aykpIHJldHVybiAxOwogIHJldHVybiAwOwp9CmNvbnN0IEFMVD1uZXcgTWFwKERBVEEubWlzbWF0Y2gubWFwKHI9PltyWzVdLHJbMl1dKSk7ICAgLy8ga2hhc3JhIGFzIHdyaXR0ZW4gaW4gQWdyaVN0YWNrIHdoZXJlIGl0IGRpZmZlcnMKY29uc3QgUExPVE1PREU9e2toYXNyYTonS2hhc3JhJ307CmxldCBLUT1bXSwgS0hJVFM9bmV3IE1hcCgpOyAgICAgLy8gYnVja2V0IGlkIC0+IFt7c3Ysa3csa3QscGwsb3duZXIsc2NvcmV9XQpmdW5jdGlvbiBjb21wdXRlS2hhc3JhKCl7CiAgS0hJVFM9bmV3IE1hcCgpOyBLUT1xP3Euc3BsaXQoL1ssO10rLykubWFwKGtuKS5maWx0ZXIoQm9vbGVhbik6W107CiAgaWYoIUtRLmxlbmd0aCkgcmV0dXJuOwogIGNvbnN0IHNjb3JlPShzdixrdyxrdCxwbCk9Pm1vZGU9PT0na2hhc3JhJz9NYXRoLm1heCguLi5LUS5tYXAoaz0+TWF0aC5tYXgoa1Njb3JlKHN2LGspLEFMVC5oYXMocGwpP2tTY29yZShBTFQuZ2V0KHBsKSxrKTowKSkpOgogICAgICAgICAgICAgICAgICAgICAgICAgTWF0aC5tYXgoLi4uS1EubWFwKGs9PmtuKG1vZGU9PT0na2hld2F0Jz9rdzprdCk9PT1rPzQ6MCkpOwogIGZvcihjb25zdCBiIG9mIERBVEEuYnVja2V0cyl7CiAgICBjb25zdCBoaXRzPVtdOwogICAgZm9yKGNvbnN0IHYgb2YgYi52KSB2WzNdLmZvckVhY2goKHN2LGkpPT57Y29uc3Qga3c9dls3XVtpXSxrdD12WzhdW2ldLHNjPXNjb3JlKHN2LGt3LGt0LHZbNF1baV0pOyBpZihzYykgaGl0cy5wdXNoKHtzdixrdyxrdCxwbDp2WzRdW2ldLG93bmVyOnZbMF0sc2NvcmU6c2N9KTt9KTsKICAgIGlmKGhpdHMubGVuZ3RoKSBLSElUUy5zZXQoYi5pZCxoaXRzLnNvcnQoKGEsYik9PmIuc2NvcmUtYS5zY29yZSkpOwogIH0KfQpmdW5jdGlvbiBoaXQoYil7CiAgaWYoIXEpIHJldHVybiB0cnVlOwogIGlmKFBMT1RNT0RFW21vZGVdKSByZXR1cm4gS0hJVFMuaGFzKGIuaWQpOwogIGlmKG1vZGU9PT0nYnVja2V0JykgcmV0dXJuIHEuc3BsaXQoL1ssO1xzXSsvKS5maWx0ZXIoQm9vbGVhbikuc29tZSh4PT5TdHJpbmcoYi5pZCk9PT14LnJlcGxhY2UoL1xEL2csJycpKTsKICBjb25zdCBucT1ub3JtKHEpOyByZXR1cm4gTkFNRVRYVC5nZXQoYi5pZCkuaW5jbHVkZXMobnEpfHxub3JtKGVudChiLmlkKS5maWR8fCcnKS5pbmNsdWRlcyhucSk7Cn0KY29uc3QgYmVzdFNjb3JlPWI9PlBMT1RNT0RFW21vZGVdJiZLSElUUy5oYXMoYi5pZCk/S0hJVFMuZ2V0KGIuaWQpWzBdLnNjb3JlOjA7CmNvbnN0IFBIPXtraGFzcmE6J0toYXNyYSBOby4sIGUuZy4gNjQzLzE1MScsa2hld2F0OidLaGV3YXQgTm8uLCBlLmcuIDk4JyxraGF0YTonS2hhdGEgTm8uLCBlLmcuIDE3NScsbmFtZTonTmFtZSBvciBwYXJlbnRhZ2UnLGJ1Y2tldDonQnVja2V0IElELCBlLmcuIDMzNid9Owpjb25zdCBGSUxURVJTPVsKICBbJ2FsbCcsJ0FsbCcsYj0+dHJ1ZV0sCiAgWydvcGVuJywnTm90IHlldCBmaWxsZWQnLGI9PiFlbnQoYi5pZCkuc10sCiAgWydnZW4nLCdHZW5lcmF0ZWQnLGI9PmVudChiLmlkKS5zPT09J2dlbiddLAogIFsnbm90JywnTm90IGdlbmVyYXRlZCcsYj0+ZW50KGIuaWQpLnM9PT0nbm90J10sCiAgWydub3InLCdOb3QgZ2VuZXJhdGVkLCBubyByZWFzb24nLGI9PmVudChiLmlkKS5zPT09J25vdCcmJiFlbnQoYi5pZCkucmVhc29uXSwKICBbJ2xpbmtlZCcsJ0NoZWNrIGlmIHNhbWUgcGVyc29uJyxiPT4hIWIuZ10sCiAgWydtaXhlZCcsJ01heSBob2xkIG1vcmUgdGhhbiBvbmUgcGVyc29uJyxiPT5iLnN0PT09M10sCl07CmNvbnN0IFVOSVRTPVtdOyB7Y29uc3Qgc2Vlbj1uZXcgU2V0KCk7CiAgZm9yKGNvbnN0IGIgb2YgREFUQS5idWNrZXRzKXsgaWYoc2Vlbi5oYXMoYi5pZCkpIGNvbnRpbnVlOwogICAgaWYoYi5nKXtjb25zdCBnPUdSLmdldChiLmcpOyBnLmIuZm9yRWFjaCh4PT5zZWVuLmFkZCh4KSk7IFVOSVRTLnB1c2goe2csYnM6Zy5iLm1hcCh4PT5CWS5nZXQoeCkpfSk7fQogICAgZWxzZXtzZWVuLmFkZChiLmlkKTsgVU5JVFMucHVzaCh7YnM6W2JdfSk7fX19CgpmdW5jdGlvbiByZW5kZXIoKXsKICBjb25zdCBmPUZJTFRFUlMuZmluZCh4PT54WzBdPT09ZmlsdGVyKVsyXTsKICBpZihQTE9UTU9ERVttb2RlXSkgY29tcHV0ZUtoYXNyYSgpOwogIGxldCBuPTAsIHRvdGFsPTAsIGh0bWw9Jyc7CiAgbGV0IGxpc3Q9VU5JVFM7CiAgaWYocSYmUExPVE1PREVbbW9kZV0pIGxpc3Q9VU5JVFMubWFwKCh1LGkpPT5bdSxNYXRoLm1heCguLi51LmJzLm1hcChiZXN0U2NvcmUpKSxpXSkuc29ydCgoYSxiKT0+YlsxXS1hWzFdfHxhWzJdLWJbMl0pLm1hcCh4PT54WzBdKTsKICBmb3IoY29uc3QgdSBvZiBsaXN0KXsKICAgIGNvbnN0IHZpcz11LmJzLmZpbHRlcihiPT5mKGIpJiZoaXQoYikpOyBpZighdmlzLmxlbmd0aCkgY29udGludWU7CiAgICB0b3RhbCs9dS5icy5sZW5ndGg7IGlmKG4+PXNob3duKSBjb250aW51ZTsKICAgIGh0bWwrPXUuZz9ncm91cEJsb2NrKHUuZyx1LmJzKTpjYXJkKHUuYnNbMF0sbnVsbCk7ICAgLy8gYSBncm91cCBhbHdheXMgc2hvd3MgYWxsIGl0cyBidWNrZXRzIHRvZ2V0aGVyCiAgICBuKz11LmJzLmxlbmd0aDsKICB9CiAgaWYodG90YWw+bikgaHRtbCs9YDxidXR0b24gY2xhc3M9Im1vcmUiIGlkPSJtb3JlIj5TaG93IG1vcmU8L2J1dHRvbj5gOwogICQoJyNsaXN0JykuaW5uZXJIVE1MPWh0bWx8fGA8cCBjbGFzcz0iZW1wdHkiPiR7cSYmUExPVE1PREVbbW9kZV0/YE5vIHBsb3Qgd2l0aCAke1BMT1RNT0RFW21vZGVdLnRvTG93ZXJDYXNlKCl9ICR7ZXNjKHEpfSR7ZmlsdGVyIT09J2FsbCc/JyB1bmRlciB0aGlzIGZpbHRlcic6Jyd9LiR7bW9kZT09PSdraGFzcmEnPycgVHJ5IG9ubHkgdGhlIGZpcnN0IHBhcnQgb2YgdGhlIG51bWJlciwgZS5nLiA2NDMgZm9yIDY0My8xNTEuJzonIEl0IG1heSBiZSBjb21tb24gb3IgZ292ZXJubWVudCBsYW5kLCBzZWUgTWlzY2VsbGFuZW91cyBpbmZvcm1hdGlvbi4nfWA6J05vdGhpbmcgbWF0Y2hlcy4gQ2xlYXIgdGhlIHNlYXJjaCBvciBwaWNrIGFub3RoZXIgZmlsdGVyLid9PC9wPmA7CiAgbGV0IGluZm89Jyc7CiAgaWYocSYmUExPVE1PREVbbW9kZV0mJktISVRTLnNpemUpewogICAgY29uc3QgcGxvdHM9Wy4uLktISVRTLnZhbHVlcygpXS5yZWR1Y2UoKGEsaCk9PmEraC5sZW5ndGgsMCk7CiAgICBpbmZvPWAke1BMT1RNT0RFW21vZGVdfSA8Yj4ke2VzYyhxKX08L2I+OiAke3Bsb3RzfSBwbG90JHtwbG90cz4xPydzJzonJ30gaW4gJHtLSElUUy5zaXplfSBidWNrZXQke0tISVRTLnNpemU+MT8ncyc6Jyd9LiR7bW9kZT09PSdraGFzcmEnPycgRXhhY3QgbWF0Y2hlcyBhcmUgc2hvd24gZmlyc3QuJzonJ31gOwogIH0KICAkKCcjcWluZm8nKS5pbm5lckhUTUw9aW5mbzsKICBzdGF0cygpOwp9CgokKCcjY2hpcHMnKS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsZT0+e2NvbnN0IGM9ZS50YXJnZXQuY2xvc2VzdCgnLmNoaXAnKTsgaWYoIWMpIHJldHVybjsgZmlsdGVyPWMuZGF0YXNldC5mOyBzaG93bj02MDsgcmVuZGVyKCk7fSk7CmxldCBxdDsgJCgnI3EnKS5hZGRFdmVudExpc3RlbmVyKCdpbnB1dCcsZT0+e2NsZWFyVGltZW91dChxdCk7IHF0PXNldFRpbWVvdXQoKCk9PntxPWUudGFyZ2V0LnZhbHVlLnRyaW0oKTsgc2hvd249NjA7IHJlbmRlcigpOyB3aW5kb3cuc2Nyb2xsVG8oe3RvcDpNYXRoLm1pbih3aW5kb3cuc2Nyb2xsWSwkKCdoZWFkZXInKS5vZmZzZXRIZWlnaHQpfSk7fSwyMDApfSk7CmZ1bmN0aW9uIHNldE1vZGUobSl7bW9kZT1tOyBkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCcuc21vZGUgYnV0dG9uJykuZm9yRWFjaChiPT5iLnNldEF0dHJpYnV0ZSgnYXJpYS1wcmVzc2VkJyxiLmRhdGFzZXQubT09PW0pKTsKICAkKCcjcScpLnBsYWNlaG9sZGVyPVBIW21dOyAkKCcjcScpLnNldEF0dHJpYnV0ZSgnaW5wdXRtb2RlJyxtPT09J2toYXNyYSd8fG09PT0nbmFtZSc/J3RleHQnOidudW1lcmljJyk7IHNob3duPTYwOyByZW5kZXIoKTsgJCgnI3EnKS5mb2N1cygpO30KZG9jdW1lbnQucXVlcnlTZWxlY3RvcignLnNtb2RlJykuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLGU9Pntjb25zdCBiPWUudGFyZ2V0LmNsb3Nlc3QoJ2J1dHRvbicpOyBpZihiKSBzZXRNb2RlKGIuZGF0YXNldC5tKTt9KTsKJCgnI3EnKS5wbGFjZWhvbGRlcj1QSC5raGFzcmE7CgovKiAtLS0tLS0tLS0tIGVkaXRpbmcgLS0tLS0tLS0tLSAqLwpmdW5jdGlvbiB3aG8oKXsgaWYoIVNFU1NJT04pe3Nob3dMb2dpbignTG9nIGluIHRvIHJlY29yZCBlbnRyaWVzJyk7IHJldHVybiAnJzt9IHJldHVybiBTRVNTSU9OLnVzZXJuYW1lOyB9CmZ1bmN0aW9uIHRhcmdldHModCl7IC8vIGJ1Y2tldCBpZHMgYWZmZWN0ZWQgYnkgYW4gZW50cnkgcGFuZWwKICBpZih0WzBdPT09J0cnKXtjb25zdCBnPUdSLmdldCgrdC5zbGljZSgxKSk7IHJldHVybiBnLmIubWFwKGlkPT4oe2lkLHNoYXJlZDpnLmlkfSkpO30KICByZXR1cm4gW3tpZDordC5zbGljZSgxKSxzaGFyZWQ6MH1dOwp9CmZ1bmN0aW9uIGFwcGx5KHQscGF0Y2gpewogIGNvbnN0IHc9d2hvKCk7IGlmKCF3KSByZXR1cm4gZmFsc2U7CiAgZm9yKGNvbnN0IHtpZCxzaGFyZWR9IG9mIHRhcmdldHModCkpewogICAgRVsnQicraWRdPXsuLi5lbnQoaWQpLC4uLnBhdGNoLHNoYXJlZDpzaGFyZWR8fDAsYnk6dyxhdDpEYXRlLm5vdygpLHN5bmNlZDpmYWxzZX07CiAgICBxdWV1ZShpZCk7CiAgfQogIHBlcnNpc3QoKTsgcmV0dXJuIHRydWU7Cn0KJCgnI2xpc3QnKS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsZT0+ewogIGlmKGUudGFyZ2V0LmlkPT09J21vcmUnKXtzaG93bis9NjA7IHJlbmRlcigpOyByZXR1cm47fQogIGNvbnN0IG1iPWUudGFyZ2V0LmNsb3Nlc3QoJy5tYnRuJyk7CiAgaWYobWIpeyBjb25zdCBnaWQ9K21iLmRhdGFzZXQuZywgbW9kZT1tYi5kYXRhc2V0Lm1vZGUsIGc9R1IuZ2V0KGdpZCk7CiAgICBpZihnbW9kZShnaWQpPT09bW9kZSkgcmV0dXJuOyBpZighd2hvKCkpIHJldHVybjsKICAgIGlmKG1vZGU9PT0nb25lJyl7CiAgICAgIGNvbnN0IGZpbGxlZD1nLmIubWFwKGVudCkuZmlsdGVyKHg9Pngucyk7CiAgICAgIGNvbnN0IGRpZmZlcj1uZXcgU2V0KGZpbGxlZC5tYXAoeD0+eC5zKyd8JysoeC5maWR8fCcnKSsnfCcrKHgucmVhc29ufHwnJykpKS5zaXplPjE7CiAgICAgIGlmKGRpZmZlciYmIWNvbmZpcm0oJ1RoZXNlIGJ1Y2tldHMgaGF2ZSBkaWZmZXJlbnQgZW50cmllcy4gVXNlIHRoZSBmaXJzdCBmaWxsZWQgYnVja2V0XCdzIGVudHJ5IGZvciBhbGwgb2YgdGhlbT8nKSkgcmV0dXJuOwogICAgICBFWydHJytnaWRdPXttb2RlOidvbmUnfTsKICAgICAgY29uc3QgYmFzZT1maWxsZWRbMF07IGlmKGJhc2UpIGFwcGx5KCdHJytnaWQse3M6YmFzZS5zLGZpZDpiYXNlLmZpZHx8JycscmVhc29uOmJhc2UucmVhc29ufHwnJyxub3RlOmJhc2Uubm90ZXx8JycsbjoxfSk7CiAgICAgIGVsc2UgZy5iLmZvckVhY2goaWQ9PntFWydCJytpZF09ey4uLmVudChpZCksc2hhcmVkOmdpZH07IH0pOwogICAgfWVsc2V7CiAgICAgIEVbJ0cnK2dpZF09e21vZGU6J3NlcCd9OwogICAgICBnLmIuZm9yRWFjaChpZD0+eyBpZihlbnQoaWQpLnMpIGFwcGx5KCdCJytpZCx7fSk7IGVsc2UgRVsnQicraWRdPXsuLi5lbnQoaWQpLHNoYXJlZDowfTsgfSk7CiAgICB9CiAgICBwZXJzaXN0KCk7IHJlbmRlcigpOyB0b2FzdChtb2RlPT09J29uZSc/YEJ1Y2tldHMgJHtnLmIuam9pbignLCAnKX0gbm93IHNoYXJlIG9uZSBGYXJtZXIgSURgOidFYWNoIGJ1Y2tldCByZWNvcmRlZCBzZXBhcmF0ZWx5Jyk7IHJldHVybjt9CiAgY29uc3QgcGFuZWw9ZS50YXJnZXQuY2xvc2VzdCgnLmVudHJ5Jyk7IGlmKCFwYW5lbCkgcmV0dXJuOyBjb25zdCB0PXBhbmVsLmRhdGFzZXQudDsKICBjb25zdCBzYj1lLnRhcmdldC5jbG9zZXN0KCcuc2J0bicpOwogIGlmKHNiKXsgY29uc3Qgcz1zYi5kYXRhc2V0LnM7IGNvbnN0IGN1cj10WzBdPT09J0cnP2VudChHUi5nZXQoK3Quc2xpY2UoMSkpLmJbMF0pOmVudCgrdC5zbGljZSgxKSk7IGlmKGN1ci5zPT09cykgcmV0dXJuOwogICAgaWYoYXBwbHkodCx7cyxuOjEsZmlkOicnLC4uLihzPT09J2dlbic/e3JlYXNvbjonJyxub3RlOicnfTp7fSl9KSl7cmVuZGVyKCk7IHRvYXN0KGAke3RbMF09PT0nRyc/J0J1Y2tldHMgJyt0YXJnZXRzKHQpLm1hcCh4PT54LmlkKS5qb2luKCcsICcpOidCdWNrZXQgJyt0LnNsaWNlKDEpfTogJHtTVEFUVVNbc119YCk7CiAgICAgIGNvbnN0IG5leHQ9ZG9jdW1lbnQucXVlcnlTZWxlY3RvcihgW2RhdGEtdD0iJHt0fSJdIHNlbGVjdFtkYXRhLWY9cmVhc29uXWApOyBuZXh0JiZuZXh0LmZvY3VzKCk7fQogICAgcmV0dXJuO30KICBpZihlLnRhcmdldC5kYXRhc2V0LnVzZSl7IGlmKGFwcGx5KHQse2ZpZDplLnRhcmdldC5kYXRhc2V0LnVzZX0pKXtyZW5kZXIoKTsgdG9hc3QoJ1NhbWUgRmFybWVyIElEIGFwcGxpZWQnKTt9IHJldHVybjt9CiAgaWYoZS50YXJnZXQuY2xvc2VzdCgnW2RhdGEtcmVzZXRdJykpewogICAgY29uc3QgaWRzPXRhcmdldHModCkubWFwKHg9PnguaWQpOwogICAgaWYoIWNvbmZpcm0oaWRzLmxlbmd0aD4xP2BSZW1vdmUgdGhlIGVudHJ5IGZvciBidWNrZXRzICR7aWRzLmpvaW4oJywgJyl9P2A6YFJlbW92ZSB0aGUgZW50cnkgZm9yIGJ1Y2tldCAke2lkc1swXX0/YCkpIHJldHVybjsKICAgIGlmKGFwcGx5KHQse3M6JycsZmlkOicnLHJlYXNvbjonJyxub3RlOicnLG46MX0pKXtyZW5kZXIoKTsgdG9hc3QoaWRzLmxlbmd0aD4xP2BCdWNrZXRzICR7aWRzLmpvaW4oJywgJyl9IHJlc2V0YDpgQnVja2V0ICR7aWRzWzBdfSByZXNldGApO30gfQp9KTsKJCgnI2xpc3QnKS5hZGRFdmVudExpc3RlbmVyKCdjaGFuZ2UnLGU9PnsKICBjb25zdCBwYW5lbD1lLnRhcmdldC5jbG9zZXN0KCcuZW50cnknKTsgaWYoIXBhbmVsfHwhZS50YXJnZXQuZGF0YXNldC5mKSByZXR1cm47CiAgY29uc3QgdD1wYW5lbC5kYXRhc2V0LnQsIGY9ZS50YXJnZXQuZGF0YXNldC5mOwogIGxldCB2PWUudGFyZ2V0LnZhbHVlLnRyaW0oKTsgaWYoZj09PSdmaWQnKXt2PXYudG9VcHBlckNhc2UoKTsgZS50YXJnZXQudmFsdWU9djt9IGlmKGY9PT0nbicpIHY9K3Y7CiAgaWYoIWFwcGx5KHQse1tmXTp2fSkpIHJldHVybjsKICBjb25zdCBzdD1wYW5lbC5xdWVyeVNlbGVjdG9yKCcuc3RhbXAnKTsgaWYoc3QpIHN0LmlubmVySFRNTD1zdGFtcFRleHQoZW50KHRhcmdldHModClbMF0uaWQpKTsKICAvLyByZWZyZXNoIGhpbnRzIGluIHRoZSBzYW1lIGdyb3VwIHdpdGhvdXQgcmVidWlsZGluZyB0aGUgZmllbGQgYmVpbmcgZWRpdGVkCiAgY29uc3QgaWQ9dGFyZ2V0cyh0KVswXS5pZCwgYj1CWS5nZXQoaWQpOwogIGlmKGIuZyYmZj09PSdmaWQnKSBHUi5nZXQoYi5nKS5iLmZvckVhY2goeD0+e2NvbnN0IGg9ZG9jdW1lbnQucXVlcnlTZWxlY3RvcihgI2Ike3h9IC5oaW50YCk7IGlmKGgpIGguaW5uZXJIVE1MPWxpbmtlZElkSGludChCWS5nZXQoeCkpO30pOwogIHN0YXRzKCk7Cn0pOwpmdW5jdGlvbiB0b2FzdCh0KXtjb25zdCBlbD0kKCcjdG9hc3QnKTsgZWwudGV4dENvbnRlbnQ9dDsgZWwuY2xhc3NMaXN0LmFkZCgnc2hvdycpOyBjbGVhclRpbWVvdXQodG9hc3QudCk7IHRvYXN0LnQ9c2V0VGltZW91dCgoKT0+ZWwuY2xhc3NMaXN0LnJlbW92ZSgnc2hvdycpLDE4MDApO30KCi8qIC0tLS0tLS0tLS0gcm93IHNlbnQgdG8gdGhlIHNoZWV0IC8gQ1NWIC0tLS0tLS0tLS0gKi8KZnVuY3Rpb24gcm93Rm9yKGlkKXsKICBjb25zdCBiPUJZLmdldChpZCksIGU9ZW50KGlkKTsKICBsZXQgZ3VpZGU9Jyc7CiAgaWYoYi5nKXtjb25zdCBnPUdSLmdldChiLmcpOyBndWlkZT1gQ2hlY2sgaWYgc2FtZSBwZXJzb24gYXMgYnVja2V0ICR7Zy5iLmZpbHRlcih4PT54IT09aWQpLmpvaW4oJywgJyl9YDt9CiAgaWYoYi5zdD09PTMpIGd1aWRlKz0oZ3VpZGU/JzsgJzonJykrJ01heSBob2xkIG1vcmUgdGhhbiBvbmUgcGVyc29uJzsKICBjb25zdCBzaGFyZWQ9ZS5zaGFyZWQ/R1IuZ2V0KGUuc2hhcmVkKS5iOltdOwogIHJldHVybiB7dmlsbGFnZTpWSUxMQUdFLGJ1Y2tldF9pZDpiLnU/P2lkLG93bmVyOmIudlswXVswXSxwYXJlbnRhZ2U6Yi52WzBdWzFdLAogICAgb3RoZXJfbmFtZXM6Yi52LnNsaWNlKDEpLm1hcCh2PT52WzBdKycgLyAnK3ZbMV0pLmpvaW4oJyB8ICcpLHBsb3RzOnBsb3RzT2YoYiksCiAgICBzdXJ2ZXlfbm9zOlsuLi5uZXcgU2V0KGIudi5mbGF0TWFwKHY9PnZbM10pKV0uam9pbignLCAnKSwKICAgIGtoZXdhdF9ub3M6Wy4uLm5ldyBTZXQoYi52LmZsYXRNYXAodj0+dls3XSkpXS5qb2luKCcsICcpLGtoYXRhX25vczpbLi4ubmV3IFNldChiLnYuZmxhdE1hcCh2PT52WzhdKSldLmpvaW4oJywgJyksYXJlYV9oYTpiLmUsZ3JvdXA6Yi5nfHwnJyxndWlkYW5jZTpndWlkZSwKICAgIHN0YXR1czplLnM/U1RBVFVTW2Uuc106JycsCiAgICBpZF9iYXNpczplLnM/KGUuc2hhcmVkP2BPbmUgSUQgZm9yIGJ1Y2tldHMgJHtzaGFyZWQuam9pbignLCAnKX1gOihlLnM9PT0nZ2VuJyYmKCtlLm58fDEpPjE/YCR7ZS5ufSBJRHMgZm9yIHRoaXMgYnVja2V0YDonT3duIGVudHJ5JykpOicnLAogICAgaWRzX2NvdW50ZWQ6ZS5zPT09J2dlbic/KGUuc2hhcmVkPyhzaGFyZWRbMF09PT1pZD8xOjApOigrZS5ufHwxKSk6MCwKICAgIGZhcm1lcl9pZDplLmZpZHx8JycscmVhc29uOmUucmVhc29ufHwnJyxyZW1hcmtzOmUubm90ZXx8JycsCiAgICBzdWJtaXR0ZWRfYnk6ZS5zfHxlLm5vdGU/ZS5ieXx8Jyc6Jycsc3VibWl0dGVkX2F0OmUuYXQ/bmV3IERhdGUoZS5hdCkudG9JU09TdHJpbmcoKTonJ307Cn0KCi8qIC0tLS0tLS0tLS0gbG9naW4gYW5kIHNlcnZlciBjYWxscyAtLS0tLS0tLS0tICovCmNvbnN0IFNLRVk9J2Zhcm1lcklkU2Vzc2lvbjonK1RFSFNJTCsnOicrVklMTEFHRTsKdHJ5e1JFQVNPTlM9SlNPTi5wYXJzZShsb2NhbFN0b3JhZ2UuZ2V0SXRlbSgnZmFybWVySWRSZWFzb25zJyl8fCdbXScpfWNhdGNoKGUpe30KZnVuY3Rpb24gc2V0UmVhc29ucyhsaXN0KXsgaWYoIUFycmF5LmlzQXJyYXkobGlzdCkpIHJldHVybjsgUkVBU09OUz1saXN0OyB0cnl7bG9jYWxTdG9yYWdlLnNldEl0ZW0oJ2Zhcm1lcklkUmVhc29ucycsSlNPTi5zdHJpbmdpZnkobGlzdCkpfWNhdGNoKGUpe30gfQpsZXQgU0VTU0lPTj1udWxsOwp0cnl7U0VTU0lPTj1KU09OLnBhcnNlKGxvY2FsU3RvcmFnZS5nZXRJdGVtKFNLRVkpfHwnbnVsbCcpfWNhdGNoKGUpe30KY29uc3Qga2V5Tj1zPT5TdHJpbmcoc3x8JycpLnRyaW0oKS50b0xvd2VyQ2FzZSgpOwphc3luYyBmdW5jdGlvbiBhcGkoYWN0aW9uLHBheWxvYWQ9e30pewogIGNvbnN0IHI9YXdhaXQgZmV0Y2goQVBQU19TQ1JJUFRfVVJMLHttZXRob2Q6J1BPU1QnLGhlYWRlcnM6eydDb250ZW50LVR5cGUnOid0ZXh0L3BsYWluO2NoYXJzZXQ9dXRmLTgnfSxib2R5OkpTT04uc3RyaW5naWZ5KHthY3Rpb24sdG9rZW46U0VTU0lPTiYmU0VTU0lPTi50b2tlbiwuLi5wYXlsb2FkfSl9KTsKICBjb25zdCBqPWF3YWl0IHIuanNvbigpOwogIGlmKCFqLm9rKXsgY29uc3QgZT1uZXcgRXJyb3Ioai5lcnJvcnx8J1JlcXVlc3QgZmFpbGVkJyk7IGUuYXV0aD0hIWouYXV0aDsgaWYoZS5hdXRoKXsgY2xlYXJTZXNzaW9uKCk7IHNob3dMb2dpbihqLmVycm9yKTsgfSB0aHJvdyBlOyB9CiAgcmV0dXJuIGo7Cn0KZnVuY3Rpb24gY2xlYXJTZXNzaW9uKCl7U0VTU0lPTj1udWxsOyB0cnl7bG9jYWxTdG9yYWdlLnJlbW92ZUl0ZW0oU0tFWSl9Y2F0Y2goZSl7fSBzZXRBY2N0KCk7fQpmdW5jdGlvbiBzZXRBY2N0KCl7CiAgJCgnI2FjY3QnKS5pbm5lckhUTUw9U0VTU0lPTiYmQVBQU19TQ1JJUFRfVVJMP2BMb2dnZWQgaW4gYXMgPGI+JHtlc2MoU0VTU0lPTi51c2VybmFtZSl9PC9iPiA8YnV0dG9uIGNsYXNzPSJsaW5rYnRuIiBpZD0ibG9nb3V0Ij5Mb2cgb3V0PC9idXR0b24+YDooQVBQU19TQ1JJUFRfVVJMP2A8YnV0dG9uIGNsYXNzPSJsb2dpbmJ0biIgaWQ9ImxvZ2luYnRuIj5Mb2cgaW4gdG8gZW50ZXIgZGF0YTwvYnV0dG9uPmA6J05vdCBjb25uZWN0ZWQgdG8gR29vZ2xlIFNoZWV0cyDigJMgZW50cmllcyBzdGF5IG9uIHRoaXMgZGV2aWNlJyk7Cn0KZnVuY3Rpb24gc2hvd0xvZ2luKG1zZyl7ICQoJyNsc3ViJykudGV4dENvbnRlbnQ9YCR7VklMTEFHRX0ke1RFSFNJTD8nLCBUZWhzaWwgJytURUhTSUw6Jyd9YDsgJCgnI2xlcnInKS50ZXh0Q29udGVudD1tc2d8fCcnOyAkKCcjbG9naW4nKS5oaWRkZW49ZmFsc2U7IHNldFRpbWVvdXQoKCk9PiQoJyNsdScpLmZvY3VzKCksNTApOyB9CiQoJyNsZm9ybScpLmFkZEV2ZW50TGlzdGVuZXIoJ3N1Ym1pdCcsYXN5bmMgZT0+ewogIGUucHJldmVudERlZmF1bHQoKTsgJCgnI2xidG4nKS5kaXNhYmxlZD10cnVlOyAkKCcjbGVycicpLnRleHRDb250ZW50PScnOwogIHRyeXsKICAgIGNvbnN0IGo9YXdhaXQgYXBpKCdsb2dpbicse3VzZXJuYW1lOiQoJyNsdScpLnZhbHVlLnRyaW0oKSxwYXNzd29yZDokKCcjbHAnKS52YWx1ZX0pOwogICAgaWYoai5yb2xlIT09J3ZpbGxhZ2UnKXsgdGhyb3cgbmV3IEVycm9yKCdUaGlzIGlzIGFuIGFkbWluIGxvZ2luLiBVc2UgdGhlIHZpbGxhZ2UgbG9naW4gb24gdGhpcyBwYWdlLicpOyB9CiAgICBpZihrZXlOKGoudmlsbGFnZSkhPT1rZXlOKFZJTExBR0UpfHwoVEVIU0lMJiZrZXlOKGoudGVoc2lsKSE9PWtleU4oVEVIU0lMKSkpeyBhcGkoJ2xvZ291dCcse3Rva2VuOmoudG9rZW59KS5jYXRjaCgoKT0+e30pOyB0aHJvdyBuZXcgRXJyb3IoYFRoaXMgbG9naW4gaXMgZm9yICR7ai52aWxsYWdlfSAoJHtqLnRlaHNpbH0pLCBub3QgJHtWSUxMQUdFfS5gKTsgfQogICAgU0VTU0lPTj17dG9rZW46ai50b2tlbix1c2VybmFtZTpqLnVzZXJuYW1lLHZpbGxhZ2U6ai52aWxsYWdlLHRlaHNpbDpqLnRlaHNpbH07CiAgICB0cnl7bG9jYWxTdG9yYWdlLnNldEl0ZW0oU0tFWSxKU09OLnN0cmluZ2lmeShTRVNTSU9OKSl9Y2F0Y2goXyl7fQogICAgJCgnI2xwJykudmFsdWU9Jyc7ICQoJyNsb2dpbicpLmhpZGRlbj10cnVlOyBzZXRBY2N0KCk7CiAgICBhcGkoJ3ZpbGxhZ2VNZXRhJyx7dG90YWxfYnVja2V0czpEQVRBLmJ1Y2tldHMubGVuZ3RoLGdyb3VwczpEQVRBLmdyb3Vwcy5sZW5ndGh9KS5jYXRjaCgoKT0+e30pOwogICAgYXdhaXQgbG9hZCgpOyBpZihwZW5kaW5nLnNpemUpIGZsdXNoKCk7CiAgfWNhdGNoKGVycil7ICQoJyNsZXJyJykudGV4dENvbnRlbnQ9ZXJyLm1lc3NhZ2U7IH0KICBmaW5hbGx5eyAkKCcjbGJ0bicpLmRpc2FibGVkPWZhbHNlOyB9Cn0pOwpkb2N1bWVudC5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsYXN5bmMgZT0+ewogIGlmKGUudGFyZ2V0LmlkPT09J2xvZ2luYnRuJyl7IHNob3dMb2dpbigpOyByZXR1cm47IH0KICBpZihlLnRhcmdldC5pZD09PSdsdmlldycpeyAkKCcjbG9naW4nKS5oaWRkZW49dHJ1ZTsgcmV0dXJuOyB9CiAgaWYoZS50YXJnZXQuaWQhPT0nbG9nb3V0JykgcmV0dXJuOwogIGlmKHBlbmRpbmcuc2l6ZSYmIWNvbmZpcm0oJ1NvbWUgZW50cmllcyBhcmUgbm90IHNhdmVkIHlldC4gTG9nIG91dCBhbnl3YXk/IFRoZXkgd2lsbCBiZSBzZW50IGFmdGVyIHRoZSBuZXh0IGxvZ2luLicpKSByZXR1cm47CiAgY29uc3QgdGs9U0VTU0lPTiYmU0VTU0lPTi50b2tlbjsgY2xlYXJTZXNzaW9uKCk7IGlmKHRrKSBhcGkoJ2xvZ291dCcse3Rva2VuOnRrfSkuY2F0Y2goKCk9Pnt9KTsgc2V0U3luYygpOyB0b2FzdCgnTG9nZ2VkIG91dCDigJMgdmlldyBvbmx5Jyk7IH0pOwoKLyogLS0tLS0tLS0tLSBHb29nbGUgU2hlZXRzIHN5bmMgLS0tLS0tLS0tLSAqLwpjb25zdCBwZW5kaW5nPW5ldyBTZXQoT2JqZWN0LmtleXMoRSkuZmlsdGVyKGs9PmtbMF09PT0nQicmJiFFW2tdLnN5bmNlZCkubWFwKGs9PitrLnNsaWNlKDEpKSk7CmxldCB0aW1lcj1udWxsLCBidXN5PWZhbHNlOwpmdW5jdGlvbiBxdWV1ZShpZCl7cGVuZGluZy5hZGQoaWQpOyBzZXRTeW5jKCk7IGNsZWFyVGltZW91dCh0aW1lcik7IHRpbWVyPXNldFRpbWVvdXQoZmx1c2gsMTIwMCk7fQphc3luYyBmdW5jdGlvbiBmbHVzaCgpewogIGlmKCFBUFBTX1NDUklQVF9VUkx8fGJ1c3l8fCFwZW5kaW5nLnNpemV8fCFTRVNTSU9OKSByZXR1cm4gc2V0U3luYygpOwogIGJ1c3k9dHJ1ZTsgc2V0U3luYygnYnVzeScpOwogIGNvbnN0IGlkcz1bLi4ucGVuZGluZ10uc2xpY2UoMCwyNSk7CiAgdHJ5ewogICAgYXdhaXQgYXBpKCdzYXZlJyx7aXRlbXM6aWRzLm1hcChyb3dGb3IpfSk7CiAgICBpZHMuZm9yRWFjaChpZD0+e3BlbmRpbmcuZGVsZXRlKGlkKTsgaWYoRVsnQicraWRdKSBFWydCJytpZF0uc3luY2VkPXRydWU7IGNvbnN0IHN0PWRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYFtkYXRhLXQ9IkIke2lkfSJdIC5zdGFtcGApOyBpZihzdCkgc3QuaW5uZXJIVE1MPXN0YW1wVGV4dChlbnQoaWQpKTt9KTsKICAgIHBlcnNpc3QoKTsgYnVzeT1mYWxzZTsgc2V0U3luYygpOyBpZihwZW5kaW5nLnNpemUpIGZsdXNoKCk7CiAgfWNhdGNoKGVycil7YnVzeT1mYWxzZTsgc2V0U3luYygnZXJyJyxlcnIuYXV0aD8nbG9nIGluIGFnYWluJzplcnIubWVzc2FnZSk7IGlmKCFlcnIuYXV0aCl7Y2xlYXJUaW1lb3V0KHRpbWVyKTsgdGltZXI9c2V0VGltZW91dChmbHVzaCw4MDAwKTt9fQp9CmZ1bmN0aW9uIHNldFN5bmMoc3RhdGUsbXNnKXsKICBjb25zdCBlbD0kKCcjc3luYycpLCB0PWVsLnF1ZXJ5U2VsZWN0b3IoJ3NwYW4nKTsgZWwuY2xhc3NOYW1lPSdzeW5jJzsKICBpZighQVBQU19TQ1JJUFRfVVJMKXt0LnRleHRDb250ZW50PSdTYXZlZCBvbiB0aGlzIGRldmljZSBvbmx5JzsgcmV0dXJuO30KICBpZighU0VTU0lPTil7IGlmKHN0YXRlPT09J2Vycicpe2VsLmNsYXNzTGlzdC5hZGQoJ2VycicpOyB0LnRleHRDb250ZW50PWBDb3VsZCBub3QgbG9hZCBlbnRyaWVzICgke21zZ30pYDt9IGVsc2UgaWYoc3RhdGU9PT0nYnVzeScpe2VsLmNsYXNzTGlzdC5hZGQoJ2J1c3knKTsgdC50ZXh0Q29udGVudD0nTG9hZGluZyBlbnRyaWVz4oCmJzt9IGVsc2UgdC50ZXh0Q29udGVudD0nVmlldyBvbmx5LiBMb2cgaW4gdG8gZW50ZXIgZGF0YS4nOyByZXR1cm47IH0KICBpZihzdGF0ZT09PSdidXN5Jyl7ZWwuY2xhc3NMaXN0LmFkZCgnYnVzeScpOyB0LnRleHRDb250ZW50PSdTYXZpbmcgdG8gR29vZ2xlIFNoZWV04oCmJzsgcmV0dXJuO30KICBpZihzdGF0ZT09PSdlcnInKXtlbC5jbGFzc0xpc3QuYWRkKCdlcnInKTsgdC50ZXh0Q29udGVudD1gTm90IHNhdmVkICgke21zZ30pLiBSZXRyeWluZy5gOyByZXR1cm47fQogIGlmKHBlbmRpbmcuc2l6ZSl7ZWwuY2xhc3NMaXN0LmFkZCgnYnVzeScpOyB0LnRleHRDb250ZW50PWAke3BlbmRpbmcuc2l6ZX0gd2FpdGluZyB0byBzYXZlYDsgcmV0dXJuO30KICBlbC5jbGFzc0xpc3QuYWRkKCdvaycpOyB0LnRleHRDb250ZW50PSdBbGwgZW50cmllcyBzYXZlZCB0byBHb29nbGUgU2hlZXQnOwp9CmFzeW5jIGZ1bmN0aW9uIGxvYWQoKXsKICBpZighQVBQU19TQ1JJUFRfVVJMKSByZXR1cm47CiAgc2V0U3luYygnYnVzeScpOwogIHRyeXsKICAgIGNvbnN0IGo9U0VTU0lPTj9hd2FpdCBhcGkoJ2xpc3QnKTphd2FpdCBhcGkoJ3B1YmxpY0xpc3QnLHt2aWxsYWdlOlZJTExBR0UsdGVoc2lsOlRFSFNJTH0pOwogICAgY29uc3Qgc2Vlbj1uZXcgU2V0KGouaXRlbXMuZmlsdGVyKGl0PT5pdC5zdGF0dXMpLm1hcChpdD0+aWRPZihpdC5idWNrZXRfaWQpKSk7CiAgICAvLyBlbnRyaWVzIGNsZWFyZWQgZWxzZXdoZXJlOiBkcm9wIHNhdmVkIGxvY2FsIGNvcGllcyB0aGF0IHRoZSBzaGVldCBubyBsb25nZXIgaGFzCiAgICBmb3IoY29uc3QgayBvZiBPYmplY3Qua2V5cyhFKSkgaWYoa1swXT09PSdCJyYmRVtrXS5zeW5jZWQmJkVba10ucyYmIXNlZW4uaGFzKCtrLnNsaWNlKDEpKSkgRVtrXT17Li4uRVtrXSxzOicnLHJlYXNvbjonJyxub3RlOicnLGZpZDonJyxzaGFyZWQ6MH07CiAgICBzZXRSZWFzb25zKGoucmVhc29ucyk7CiAgICBjb25zdCByZXY9eydDbGFpbWVkJzonZ2VuJywnTm90IGNsYWltZWQnOidub3QnLCdHZW5lcmF0ZWQnOidnZW4nLCdOb3QgZ2VuZXJhdGVkJzonbm90J307CiAgICBmb3IoY29uc3QgaXQgb2Ygai5pdGVtcyl7CiAgICAgIGNvbnN0IGlkPWlkT2YoaXQuYnVja2V0X2lkKTsgaWYoaWQ9PT11bmRlZmluZWQpIGNvbnRpbnVlOyBjb25zdCBhdD1EYXRlLnBhcnNlKGl0LnN1Ym1pdHRlZF9hdCl8fDAsIGxvYz1FWydCJytpZF07CiAgICAgIGlmKGxvYyYmIWxvYy5zeW5jZWQmJihsb2MuYXR8fDApPmF0KSBjb250aW51ZTsKICAgICAgY29uc3QgYj1CWS5nZXQoaWQpOyBpZighYikgY29udGludWU7CiAgICAgIGNvbnN0IHNoYXJlZD0vXk9uZSBJRCBmb3IgYnVja2V0cy8udGVzdChpdC5pZF9iYXNpc3x8JycpP2IuZzowOwogICAgICBjb25zdCBuPSsoU3RyaW5nKGl0LmlkX2Jhc2lzfHwnJykubWF0Y2goL14oXGQrKSBJRHMvKXx8W10pWzFdfHwxOwogICAgICBFWydCJytpZF09e3M6cmV2W2l0LnN0YXR1c118fCcnLGZpZDppdC5mYXJtZXJfaWR8fCcnLHJlYXNvbjppdC5yZWFzb258fCcnLG5vdGU6aXQucmVtYXJrc3x8JycsbixzaGFyZWQsYnk6aXQuc3VibWl0dGVkX2J5fHwnJyxhdCxzeW5jZWQ6dHJ1ZX07CiAgICAgIGlmKHNoYXJlZCkgRVsnRycrc2hhcmVkXT17bW9kZTonb25lJ307CiAgICB9CiAgICBwZXJzaXN0KCk7IHJlbmRlcigpOyBzZXRTeW5jKCk7IGlmKHBlbmRpbmcuc2l6ZSkgZmx1c2goKTsKICB9Y2F0Y2goZXJyKXtzZXRTeW5jKCdlcnInLGVyci5tZXNzYWdlKX0KfQp3aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcignYmVmb3JldW5sb2FkJyxlPT57aWYoQVBQU19TQ1JJUFRfVVJMJiZwZW5kaW5nLnNpemUpe2UucHJldmVudERlZmF1bHQoKTsgZS5yZXR1cm5WYWx1ZT0nJzt9fSk7CgokKCcjY3N2JykuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCgpPT57CiAgY29uc3Qgcm93cz1EQVRBLmJ1Y2tldHMubWFwKGI9PnJvd0ZvcihiLmlkKSksIGNvbHM9T2JqZWN0LmtleXMocm93c1swXSk7CiAgY29uc3QgY3N2PVtjb2xzLmpvaW4oJywnKV0uY29uY2F0KHJvd3MubWFwKG89PmNvbHMubWFwKGM9PmAiJHtTdHJpbmcob1tjXSkucmVwbGFjZSgvIi9nLCciIicpfSJgKS5qb2luKCcsJykpKS5qb2luKCdcclxuJyk7CiAgY29uc3QgYT1kb2N1bWVudC5jcmVhdGVFbGVtZW50KCdhJyk7IGEuaHJlZj1VUkwuY3JlYXRlT2JqZWN0VVJMKG5ldyBCbG9iKFsnXHVmZWZmJytjc3ZdLHt0eXBlOid0ZXh0L2Nzdid9KSk7CiAgYS5kb3dubG9hZD1gZmFybWVyX2lkX2J5X2J1Y2tldF8keyhWSUxMQUdFfHwndmlsbGFnZScpLnJlcGxhY2UoL1xXKy9nLCdfJyl9LmNzdmA7IGEuY2xpY2soKTsKfSk7CgovKiAtLS0tLS0tLS0tIG1pc2NlbGxhbmVvdXMgaW5mb3JtYXRpb24gLS0tLS0tLS0tLSAqLwpmdW5jdGlvbiBtaXNjSHRtbCgpewogIGNvbnN0IFg9REFUQS5leHRyYSwgaXNJbmQ9cj0+IS9eKG5hfHNhcmthcnwpJC9pLnRlc3QoU3RyaW5nKHJbMV0pLnRyaW0oKSk7CiAgY29uc3QgaW5kPVguZmlsdGVyKGlzSW5kKSwgbm9uPVguZmlsdGVyKHI9PiFpc0luZChyKSk7CiAgY29uc3QgY2F0PXI9Pntjb25zdCBuPXJbMF0udG9Mb3dlckNhc2UoKTsKICAgIGlmKC9hYWJhZGl8YWJhZGkvLnRlc3QobikpIHJldHVybiAnQWFiYWRpIERlaCc7IGlmKC9zaGFtaWxhdC8udGVzdChuKSkgcmV0dXJuICdTaGFtaWxhdCc7CiAgICBpZigvcmluZyByb2FkfG5oYWl8c2Fya2FyLy50ZXN0KG4pKSByZXR1cm4gJ1NhcmthciAvIFJpbmcgUm9hZCAvIE5IQUknOyBpZigvcm9hZHxraGhhZHxnaGFkaC8udGVzdChuKSkgcmV0dXJuICdSb2FkcyBhbmQgb3RoZXIgcHVibGljIHVzZSc7CiAgICBpZigvaW1hbWJhZGF8c2hpYXxhaGxpIGlzbGFtfGFobCAvLnRlc3QobikpIHJldHVybiAnUmVsaWdpb3VzIC8gY29tbXVuaXR5JzsgaWYoL21hcWJvb3phfG1ha2Jvb3phLy50ZXN0KG4pKSByZXR1cm4gJ01hcWJvb3phIChkZXBhcnRtZW50cywgY2FuYWxzLCBwYW5jaGF5YXQpJzsgcmV0dXJuICdPdGhlcic7fTsKICBjb25zdCBncm91cHM9e307IG5vbi5mb3JFYWNoKHI9Pihncm91cHNbY2F0KHIpXT1ncm91cHNbY2F0KHIpXXx8W10pLnB1c2gocikpOwogIGNvbnN0IHRibD0ocm93cyxvd25lcj10cnVlKT0+YDxkaXYgY2xhc3M9Im10d3JhcCI+PHRhYmxlIGNsYXNzPSJtdCI+PHRoZWFkPjx0cj4ke293bmVyPyc8dGg+T3duZXI8L3RoPjx0aD5QYXJlbnRhZ2U8L3RoPic6Jzx0aD5SZWNvcmRlZCBhczwvdGg+J308dGg+S2hhc3JhPC90aD48dGg+S2hld2F0PC90aD48dGg+S2hhdGE8L3RoPjx0aD5IZWN0YXJlPC90aD48dGg+SG9sZGVyPC90aD48L3RyPjwvdGhlYWQ+PHRib2R5PiR7cm93cy5tYXAocj0+YDx0cj4ke293bmVyP2A8dGQ+JHtlc2MoclswXSl9PC90ZD48dGQ+JHtlc2MoclsxXSl9PC90ZD5gOmA8dGQ+JHtlc2MoclswXSl9PC90ZD5gfTx0ZD4ke2VzYyhyWzJdKX08L3RkPjx0ZD4ke2VzYyhyWzNdKX08L3RkPjx0ZD4ke2VzYyhyWzRdKX08L3RkPjx0ZD4ke3JbNV0udG9GaXhlZCg0KX08L3RkPjx0ZD4ke2VzYyhyWzZdKX08L3RkPjwvdHI+YCkuam9pbignJyl9PC90Ym9keT48L3RhYmxlPjwvZGl2PmA7CiAgY29uc3QgaW5kTmFtZXM9Wy4uLm5ldyBNYXAoaW5kLm1hcChyPT5bclswXSsnfCcrclsxXSxyXSkpLnZhbHVlcygpXS5tYXAocj0+YCR7ZXNjKHJbMF0pfSBzL28gJHtlc2MoclsxXSl9ICgke2luZC5maWx0ZXIoeD0+eFswXT09PXJbMF0mJnhbMV09PT1yWzFdKS5sZW5ndGh9IHBsb3Qke2luZC5maWx0ZXIoeD0+eFswXT09PXJbMF0mJnhbMV09PT1yWzFdKS5sZW5ndGg+MT8ncyc6Jyd9KWApOwogIGNvbnN0IE09REFUQS5taXNtYXRjaDsKICByZXR1cm4gYDxwPlRoZSBBZ3JpU3RhY2sgcmVjb3JkIGZvciAke2VzYyhWSUxMQUdFfHwndGhpcyB2aWxsYWdlJyl9IGhhcyAke0RBVEEuYWdyaVBsb3RzLnRvTG9jYWxlU3RyaW5nKCl9IHBsb3RzIGluICR7REFUQS5raGV3YXRzfSBraGV3YXRzIGFuZCAke0RBVEEua2hhdGFzfSBraGF0YXMuIEV2ZXJ5IHBsb3QgaW4gdGhlIGJ1Y2tldCBkYXRhIHdhcyBmb3VuZCBpbiBpdCwgd2l0aCBtYXRjaGluZyBvd25lciwgcGFyZW50YWdlIGFuZCBhcmVhLjwvcD4KICA8aDM+RXh0cmEgcGxvdHMgaW4gQWdyaVN0YWNrOiAke1gubGVuZ3RofSBwbG90cyBhcmUgbm90IGluIGFueSBidWNrZXQ8L2gzPgogIDxwPiR7bm9uLmxlbmd0aH0gYXJlIG5vbi1pbmRpdmlkdWFsIGxhbmQ6ICR7T2JqZWN0LmtleXMoZ3JvdXBzKS5qb2luKCcsICcpfS4gVGhlIG90aGVyICR7aW5kLmxlbmd0aH0gbG9vayBsaWtlIGluZGl2aWR1YWxzIGxlZnQgb3V0IG9mIHRoZSBidWNrZXRzOiAke2luZE5hbWVzLmpvaW4oJywgJyl9LjwvcD4KICA8aDM+SW5kaXZpZHVhbHMgd2l0aG91dCBhIGJ1Y2tldDwvaDM+JHt0YmwoaW5kKX0KICA8aDM+Tm9uLWluZGl2aWR1YWwgbGFuZDwvaDM+CiAgJHtPYmplY3QuZW50cmllcyhncm91cHMpLm1hcCgoW2sscm93c10pPT5gPGRldGFpbHMgY2xhc3M9ImNhdCI+PHN1bW1hcnk+JHtlc2Moayl9OiAke3Jvd3MubGVuZ3RofSBwbG90JHtyb3dzLmxlbmd0aD4xPydzJzonJ30sICR7cm93cy5yZWR1Y2UoKGEscik9PmErcls1XSwwKS50b0ZpeGVkKDQpfSBoYTwvc3VtbWFyeT4ke3RibChyb3dzLGZhbHNlKX08L2RldGFpbHM+YCkuam9pbignJyl9CiAgJHtNLmxlbmd0aD9gPGgzPktoYXNyYSByZWNvcmRlZCBkaWZmZXJlbnRseTwvaDM+PHA+SW4gJHtNLmxlbmd0aD09PTE/J3RoaXMgcGxvdCc6J3RoZXNlIHBsb3RzJ30gdGhlIGJ1Y2tldCBkYXRhIGFuZCBBZ3JpU3RhY2sgZ2l2ZSBhIGRpZmZlcmVudCBraGFzcmEgbnVtYmVyLiBDb3JyZWN0IHRoZSBidWNrZXQgZGF0YS48L3A+CiAgPGRpdiBjbGFzcz0ibXR3cmFwIj48dGFibGUgY2xhc3M9Im10Ij48dGhlYWQ+PHRyPjx0aD5CdWNrZXQ8L3RoPjx0aD5JbiBidWNrZXQgZGF0YTwvdGg+PHRoPkluIEFncmlTdGFjazwvdGg+PHRoPktoZXdhdDwvdGg+PHRoPktoYXRhPC90aD48dGg+UGxvdCBJRDwvdGg+PC90cj48L3RoZWFkPjx0Ym9keT4ke00ubWFwKHI9PmA8dHI+PHRkPiR7clswXX08L3RkPjx0ZD4ke2VzYyhyWzFdKX08L3RkPjx0ZD4ke2VzYyhyWzJdKX08L3RkPjx0ZD4ke2VzYyhyWzNdKX08L3RkPjx0ZD4ke2VzYyhyWzRdKX08L3RkPjx0ZD4ke2VzYyhyWzVdKX08L3RkPjwvdHI+YCkuam9pbignJyl9PC90Ym9keT48L3RhYmxlPjwvZGl2PmA6Jyd9YDsKfQokKCcjbWlzYycpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywoKT0+eyQoJyNtaXNjQm9keScpLmlubmVySFRNTD1taXNjSHRtbCgpOyAkKCcjbWlzY0RsZycpLnNob3dNb2RhbCgpO30pOwokKCcjbWlzY0Nsb3NlJykuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCgpPT4kKCcjbWlzY0RsZycpLmNsb3NlKCkpOwokKCcjbWlzY0RsZycpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJyxlPT57aWYoZS50YXJnZXQuaWQ9PT0nbWlzY0RsZycpICQoJyNtaXNjRGxnJykuY2xvc2UoKTt9KTsKCmlmKCFBUFBTX1NDUklQVF9VUkwpeyBTRVNTSU9OPXt1c2VybmFtZTondGhpcyBkZXZpY2UnfTsgc2V0QWNjdCgpOyByZW5kZXIoKTsgc2V0U3luYygpOyB9CmVsc2UgaWYoU0VTU0lPTiYmU0VTU0lPTi50b2tlbil7IHNldEFjY3QoKTsgcmVuZGVyKCk7IHNldFN5bmMoKTsgbG9hZCgpOyB9CmVsc2UgeyBzZXRBY2N0KCk7IHJlbmRlcigpOyBzZXRTeW5jKCk7IGxvYWQoKTsgfQo8L3NjcmlwdD4KPC9ib2R5Pgo8L2h0bWw+Cg==";
+const TEHSILS=['Bandipora','Sumbal','Aloosa','Hajin','Kaloosa','Ajas','Gurez','Tulail'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get:k=>{try{return localStorage.getItem('fidgen:'+k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem('fidgen:'+k,v)}catch(e){}}};
+$('#url').value=store.get('url')||'';
+$('#tehsil').innerHTML+=TEHSILS.map(t=>`<option>${t}</option>`).join('');
+$('#tehsil').value=store.get('tehsil')||'';
+$('#tehsil').addEventListener('change',e=>store.set('tehsil',e.target.value));
+$('#url').addEventListener('change',e=>store.set('url',e.target.value.trim()));
 
-// Levenshtein edit distance — counts single-char insertions, deletions, substitutions
-function levenshtein(a, b) {
-  const la = a.length, lb = b.length;
-  if (!la) return lb;
-  if (!lb) return la;
-  let prev = new Array(lb + 1), curr = new Array(lb + 1);
-  for (let j = 0; j <= lb; j++) prev[j] = j;
-  for (let i = 1; i <= la; i++) {
-    curr[0] = i;
-    for (let j = 1; j <= lb; j++) {
-      const cost = a[i-1] === b[j-1] ? 0 : 1;
-      curr[j] = Math.min(prev[j] + 1, curr[j-1] + 1, prev[j-1] + cost);
+const files={bucket:null,agri:null};
+let result=null;
+
+function readRows(file){
+  return file.arrayBuffer().then(buf=>{
+    const wb=XLSX.read(buf,{type:'array'});
+    for(const n of wb.SheetNames){
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
+      const kind=BucketEngine.detect(rows); if(kind) return {kind,rows,name:file.name,sheet:n};
     }
-    [prev, curr] = [curr, prev];
-  }
-  return prev[lb];
-}
-// Length-normalized Levenshtein similarity: 1 = identical, 0 = completely different
-function levSim(a, b) {
-  if (!a && !b) return 1;
-  if (!a || !b) return 0;
-  const maxLen = Math.max(a.length, b.length);
-  return 1 - levenshtein(a, b) / maxLen;
-}
-
-// Token-wise similarity using Levenshtein.
-// Better than Jaro-Winkler for this use case because it doesn't give a prefix bonus
-// that inflates the score of pairs like "raham" vs "rehman" (shared 'r' → JW 0.914, but LD 0.667).
-function tokenSim(a, b) {
-  const ta = (a || '').split(' ').filter(Boolean);
-  const tb = (b || '').split(' ').filter(Boolean);
-  if (!ta.length || !tb.length) return 0;
-
-  const [shorter, longer] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
-  const used = new Set();
-  const pairScores = [];
-  for (const s of shorter) {
-    let bestIdx = -1, bestScore = 0;
-    for (let i = 0; i < longer.length; i++) {
-      if (used.has(i)) continue;
-      const j = levSim(s, longer[i]);
-      if (j > bestScore) { bestScore = j; bestIdx = i; }
-    }
-    if (bestIdx >= 0) used.add(bestIdx);
-    pairScores.push(bestScore);
-  }
-  const minPair = Math.min(...pairScores);
-  const unmatched = longer.length - shorter.length;
-  return Math.max(0, minPair - 0.05 * unmatched);
-}
-
-/* ============================================================
-   READ EXCEL
-   ============================================================ */
-function readXlsx(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        resolve(rows);
-      } catch (err) { reject(err); }
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
+    return {kind:null,name:file.name};
   });
 }
-
-// Detect input file format. Returns {format, headerRow, cols}.
-// - 'bucket'  = AgriStack Village Wise Bucket Data (BucketId/OwnerName/IdentifierName/SurveyNumber/SubSurveyNumber)
-//               OR a Verification-sheet re-upload (S.No/Bucket ID/Name/Parentage/Survey Nos/…)
-// - 'aadhaar' = Aadhaar Collection sheet (S.NO./KHEWAT/KHATA/KHASRA/NAME/PARENTAGE/TYPE/STATUS/REASON)
-//
-// Header row can sit anywhere in the first 5 rows — verification sheets have a title on row 1
-// and a stats line on row 2, so headers land on row 3.
-function detectFormat(rawRows) {
-  const normHeader = row => (row || []).map(c => String(c || '').trim().toLowerCase().replace(/[\s_.-]/g, ''));
-
-  const bucketRawSet   = new Set(['bucketid','ownername','identifiername','surveynumber','subsurveynumber']);
-  const bucketVerifSet = new Set(['bucketid','name','parentage','surveynos','surveynumbers','sno','cluster','rows']);
-  const aadhaarKeySet  = new Set(['khewat','khata','khasra']); // strict aadhaar-only signals
-  const aadhaarSharedSet = new Set(['sno','name','parentage','type','status','reason']);
-
-  const hits = (h, set) => h.filter(x => set.has(x)).length;
-
-  const scanTo = Math.min(5, rawRows.length);
-
-  // Pass 1: raw bucket (strongest — original AgriStack format)
-  for (let i = 0; i < scanTo; i++) {
-    const r = normHeader(rawRows[i]);
-    if (hits(r, bucketRawSet) >= 2) {
-      return { format: 'bucket', headerRow: i, cols: mapBucketCols(rawRows[i]) };
-    }
-  }
-  // Pass 2: aadhaar (needs at least one strict signal + shared indicators)
-  for (let i = 0; i < scanTo; i++) {
-    const r = normHeader(rawRows[i]);
-    if (hits(r, aadhaarKeySet) >= 2 && hits(r, aadhaarSharedSet) >= 2) {
-      return { format: 'aadhaar', headerRow: i, cols: mapAadhaarCols(rawRows[i]) };
-    }
-  }
-  // Pass 3: verification-sheet re-upload (bucket family, different header names)
-  for (let i = 0; i < scanTo; i++) {
-    const r = normHeader(rawRows[i]);
-    if (hits(r, bucketVerifSet) >= 3) {
-      return { format: 'bucket', headerRow: i, cols: mapBucketCols(rawRows[i]) };
-    }
-  }
-  // Fallback: assume raw bucket at row 0 with positional columns
-  return { format: 'bucket', headerRow: 0, cols: mapBucketCols(rawRows[0]) };
+function slot(kind){
+  const f=files[kind], el=$('#s-'+kind);
+  el.classList.toggle('ok',!!f);
+  el.querySelector('.f').className='f'+(f?'':' none');
+  el.querySelector('.f').textContent=f?`${f.name} (${f.rows.filter(r=>r&&r.some(x=>x!==null&&String(x).trim()!=='')).length-1} rows)`:'Not added';
 }
+async function addFiles(list){
+  const msgs=[];
+  if(typeof XLSX==='undefined'){ $('#fileMsg').innerHTML='<div class="msg err">The Excel reader could not load. Check the internet connection and reload the page.</div>'; return; }
+  for(const f of list){
+    try{ const r=await readRows(f);
+      if(!r.kind) msgs.push(`${esc(f.name)} is neither a Bucket Data file nor an AgriStack village file.`);
+      else files[r.kind]=r;
+    }catch(e){ msgs.push(`${esc(f.name)} could not be read (${esc(e.message)}).`); }
+  }
+  slot('bucket'); slot('agri');
+  $('#fileMsg').innerHTML=msgs.map(m=>`<div class="msg err">${m}</div>`).join('');
+  if(files.bucket&&files.agri) run();
+}
+const drop=$('#drop'), inp=$('#file');
+drop.addEventListener('click',()=>inp.click());
+drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();inp.click();}});
+inp.addEventListener('change',()=>{addFiles([...inp.files]); inp.value='';});
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
 
-function mapBucketCols(headerRow) {
-  const map = { bucketId: -1, ownerName: -1, identifierName: -1, surveyNumber: -1, subSurveyNumber: -1 };
-  (headerRow || []).forEach((h, i) => {
-    const k = String(h || '').trim().toLowerCase().replace(/[\s_.-]/g, '');
-    if (k === 'bucketid')                                         map.bucketId       = i;
-    else if (k === 'ownername' || k === 'name')                   { if (map.ownerName === -1)       map.ownerName       = i; }
-    else if (k === 'identifiername' || k === 'parentage')         { if (map.identifierName === -1)  map.identifierName  = i; }
-    else if (k === 'surveynumber' || k === 'surveynos' || k === 'surveynumbers') { if (map.surveyNumber === -1) map.surveyNumber = i; }
-    else if (k === 'subsurveynumber')                             map.subSurveyNumber = i;
+/* The heavy checking runs in a background worker so the page never freezes, whatever the village size. */
+let worker=null;
+function analyseInBackground(b,a,onProgress){
+  let w=null;
+  try{
+    const src=document.getElementById('engine').textContent+`
+self.onmessage=async e=>{ try{ const r=await BucketEngine.analyse(e.data.b,e.data.a,(m,p)=>postMessage({t:'p',m,p})); postMessage({t:'done',r}); }
+  catch(err){ postMessage({t:'err',m:String(err&&err.message||err)}); } };`;
+    w=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+  }catch(e){ w=null; }
+  if(!w) return BucketEngine.analyse(b,a,onProgress);          // very old browsers: run on the page itself
+  if(worker) worker.terminate(); worker=w;
+  return new Promise((res,rej)=>{
+    let heard=false;
+    const fallback=()=>{ if(heard) return; heard=true; try{w.terminate();}catch(_){} worker=null;
+      BucketEngine.analyse(b,a,onProgress).then(res,rej); };           // worker blocked by the browser: run on the page instead
+    const guard=setTimeout(fallback,4000);
+    w.onmessage=e=>{ const d=e.data; if(!heard){heard=true; clearTimeout(guard);}
+      if(d.t==='p') onProgress(d.m,d.p); else { w.terminate(); worker=null; d.t==='done'?res(d.r):rej(new Error(d.m)); } };
+    w.onerror=e=>{ e.preventDefault&&e.preventDefault(); clearTimeout(guard); if(!heard) fallback(); else { w.terminate(); worker=null; rej(new Error(e.message||'The check stopped unexpectedly')); } };
+    try{ w.postMessage({b,a}); }catch(e){ clearTimeout(guard); fallback(); }
   });
-  // Only fall back to positional guesses if NO header matched — a partial match should not
-  // silently drag the missing columns into the wrong positions (the bug that shifted every
-  // verification-file column by one).
-  const anyMatch = map.bucketId !== -1 || map.ownerName !== -1 || map.identifierName !== -1 || map.surveyNumber !== -1;
-  if (!anyMatch) {
-    map.bucketId = 0; map.ownerName = 1; map.identifierName = 2;
-    map.surveyNumber = 3; map.subSurveyNumber = 4;
-  }
-  return map;
 }
+async function run(){
+  $('#stepCheck').classList.remove('hidden'); $('#stepMake').classList.add('hidden');
+  $('#prog').classList.remove('hidden'); $('#result').classList.add('hidden');
+  try{
+    result=await analyseInBackground(files.bucket.rows,files.agri.rows,(m,p)=>{$('#pmsg').textContent=m+'…'; $('#pbar').style.width=Math.round(p*100)+'%';});
+  }catch(e){ $('#pmsg').textContent=''; $('#warns').innerHTML=`<div class="msg err">${esc(e.message)}</div>`; $('#result').classList.remove('hidden'); $('#prog').classList.add('hidden'); return; }
+  const s=result.summary, d=result.data;
+  $('#prog').classList.add('hidden'); $('#result').classList.remove('hidden');
+  const matched=s.plots-s.missingInAgri;
+  $('#nums').innerHTML=[
+    ['',s.buckets,'buckets'],['',s.plots.toLocaleString(),'plots in buckets'],
+    ['',`${matched.toLocaleString()} / ${s.plots.toLocaleString()}`,'plots found in AgriStack'],
+    ['o',s.groups,`same-person groups (${s.groupBuckets} buckets)`],
+    ['r',s.st[3],'buckets that may hold two people'],['',s.st[1]+s.st[2],'buckets with name written differently'],
+    ['',s.extra,'AgriStack plots not in any bucket'],['',s.mismatch,'khasra recorded differently'],
+  ].map(([c,n,l])=>`<div class="num ${c}"><b>${n}</b><span>${l}</span></div>`).join('');
+  const w=[];
+  if(matched===0){ w.push(['err','None of the bucket plots are in this AgriStack file. The two files are probably from different villages.']); }
+  else if(s.missingInAgri) w.push(['warn',`${s.missingInAgri} bucket plot${s.missingInAgri>1?'s were':' was'} not found in the AgriStack file. ${s.missingInAgri>s.plots*0.2?'Check that both files are for the same village.':'Their khewat and khata will be blank.'}`]);
+  if(s.agriVillages.length>1) w.push(['warn',`The AgriStack file contains more than one village: ${s.agriVillages.map(esc).join(', ')}.`]);
+  if(!w.length) w.push(['ok',`Both files are for ${esc(s.village||'the same village')}${s.villageCode?' (village code '+esc(s.villageCode)+')':''} and every bucket plot was matched.`]);
+  $('#warns').innerHTML=w.map(([c,m])=>`<div class="msg ${c}">${m}</div>`).join('');
+  if(matched===0) return;
+  $('#village').value=s.village||'';
+  $('#user').value=slug(s.village).replace(/_/g,'').slice(0,24)||'village';
+  $('#pass').value=genPass();
+  $('#stepMake').classList.remove('hidden'); updateName();
+}
+const slug=v=>String(v||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+function genPass(){const a='abcdefghjkmnpqrstuvwxyz23456789'; let s=''; crypto.getRandomValues(new Uint32Array(8)).forEach(x=>s+=a[x%a.length]); return s;}
+const base=()=>slug($('#village').value)||'village';
+function updateName(){
+  const b=base();
+  $('#files').innerHTML=`The ZIP will contain:<ul><li><b>${b}.html</b>: the village page to put on your site</li><li><b>${b}_sheet.xlsx</b>: all ${result?result.data.buckets.length:''} buckets, to upload in the admin page when adding the village</li><li><b>${b}_READ_ME.txt</b>: username, password and the steps for this village</li></ul>`;
+}
+$('#village').addEventListener('input',updateName);
 
-function mapAadhaarCols(headerRow) {
-  const map = {};
-  (headerRow || []).forEach((h, i) => {
-    const k = String(h || '').trim().toLowerCase().replace(/[\s_.-]/g, '');
-    if (k === 'sno') map.sNo = i;
-    if (k === 'khewat') map.khewat = i;
-    if (k === 'khata') map.khata = i;
-    if (k === 'khasra') map.khasra = i;
-    if (k === 'name') map.name = i;
-    if (k === 'parentage') map.parentage = i;
-    if (k === 'type') map.type = i;
-    if (k === 'status') map.status = i;
-    if (k === 'reason') map.reason = i;
+function buildPage(){
+  const tpl=new TextDecoder().decode(Uint8Array.from(atob(TPL_B64),c=>c.charCodeAt(0)));
+  const js=v=>JSON.stringify(v).replace(/</g,'\\u003c');
+  return tpl.replace('__VILLAGE__',()=>js($('#village').value.trim()))
+            .replace('__TEHSIL__',()=>js($('#tehsil').value))
+            .replace('__URL__',()=>js($('#url').value.trim()))
+            .replace('__DATA__',()=>js(result.data));
+}
+/* ---------- the Excel for the Google Sheet ---------- */
+const COLS=[['village','Village'],['bucket_id','Bucket ID'],['owner','Owner'],['parentage','Parentage'],['other_names','Other names in bucket'],['plots','Plots'],['survey_nos','Survey Nos'],['area_ha','Area (ha)'],['group','Same-person group'],['guidance','Guidance (read only)'],['status','Farmer ID Status'],['id_basis','ID Basis'],['ids_counted','Farmer IDs Counted'],['farmer_id','Farmer ID'],['reason','Reason (if not generated)'],['remarks','Remarks'],['submitted_by','Submitted By'],['submitted_at','Submitted At'],['saved_at','Saved At'],['khewat_nos','Khewat Nos'],['khata_nos','Khata Nos']];
+function buildExcel(){
+  const d=result.data, village=$('#village').value.trim(), tehsil=$('#tehsil').value;
+  const G=new Map(d.groups.map(g=>[g.id,g])), uniq=a=>[...new Set(a)];
+  const rows=d.buckets.map(b=>{
+    let guide=''; if(b.g){const g=G.get(b.g); guide=`Check if same person as bucket ${g.b.filter(x=>x!==b.id).join(', ')}`;}
+    if(b.st===3) guide+=(guide?'; ':'')+'May hold more than one person';
+    const o={village,bucket_id:b.u??b.id,owner:b.v[0][0],parentage:b.v[0][1],other_names:b.v.slice(1).map(v=>v[0]+' / '+v[1]).join(' | '),
+      plots:b.v.reduce((a,v)=>a+v[2],0),survey_nos:uniq(b.v.flatMap(v=>v[3])).join(', '),area_ha:b.e,group:b.g||'',guidance:guide,
+      khewat_nos:uniq(b.v.flatMap(v=>v[7])).join(', '),khata_nos:uniq(b.v.flatMap(v=>v[8])).join(', ')};
+    return COLS.map(([k])=>o[k]??'');
   });
-  // Fallback positions matching the Reshipora sample
-  if (map.sNo === undefined) map.sNo = 0;
-  if (map.khewat === undefined) map.khewat = 1;
-  if (map.khata === undefined) map.khata = 2;
-  if (map.khasra === undefined) map.khasra = 3;
-  if (map.name === undefined) map.name = 4;
-  if (map.parentage === undefined) map.parentage = 5;
-  if (map.type === undefined) map.type = 6;
-  if (map.status === undefined) map.status = 7;
-  if (map.reason === undefined) map.reason = 8;
-  return map;
+  const ws=XLSX.utils.aoa_to_sheet([COLS.map(c=>c[1]),...rows]);
+  ws['!cols']=COLS.map(([k])=>({wch:{owner:22,parentage:22,other_names:28,survey_nos:36,guidance:34,reason:28,remarks:24,khewat_nos:16,khata_nos:16}[k]||12}));
+  ws['!autofilter']={ref:ws['!ref']};
+  const setup=XLSX.utils.aoa_to_sheet([['Field','Value'],['Tehsil',tehsil],['Village',village],['Username',$('#user').value.trim()],['Password',$('#pass').value.trim()],
+    ['Buckets',d.buckets.length],['Same-person groups',d.groups.length],['Generated on',new Date().toLocaleString()]]);
+  setup['!cols']=[{wch:20},{wch:32}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Buckets'); XLSX.utils.book_append_sheet(wb,setup,'Setup');
+  return XLSX.write(wb,{type:'array',bookType:'xlsx'});
 }
-
-/* ============================================================
-   PROCESS ONE VILLAGE (routes to bucket or aadhaar processor)
-   ============================================================ */
-function processVillage(fileEntry, rawRows) {
-  if (!rawRows.length) return null;
-  const fmt = detectFormat(rawRows);
-  if (fmt.format === 'aadhaar') return processAadhaarFile(fileEntry, rawRows, fmt);
-  return processBucketFile(fileEntry, rawRows, fmt);
+function readMe(){
+  const v=$('#village').value.trim(), t=$('#tehsil').value, b=base();
+  return [`FARMER ID PORTAL – ${v.toUpperCase()}, TEHSIL ${t.toUpperCase()}`,'',
+    `Village username : ${$('#user').value.trim()}`,`Village password : ${$('#pass').value.trim()}`,`Buckets          : ${result.data.buckets.length}`,'',
+    'STEPS','1. Admin page → Villages and logins → Add a village → choose '+b+'_sheet.xlsx.',
+    '   Tehsil, village, username and password fill in by themselves. Press "Add village".',
+    `2. Upload ${b}.html to the website repository (GitHub). Render publishes it in a minute or two.`,
+    `3. Send the village its link (…/${b}.html), username and password.`,'',
+    'Keep this file private. The password cannot be seen again in the admin page; issue a new one there if it is lost.'].join('\r\n');
 }
-
-// ---------- Bucket format: many rows per person → one person per (name, parentage), surveys aggregated ----------
-function processBucketFile(fileEntry, rawRows, fmt) {
-  const { file, tehsil, village } = fileEntry;
-  const cols = fmt.cols;
-  const hasSubSurvey = cols.subSurveyNumber !== undefined && cols.subSurveyNumber !== -1;
-  const records = [];
-  for (let r = fmt.headerRow + 1; r < rawRows.length; r++) {
-    const row = rawRows[r];
-    if (!row || row.every(c => c === '' || c === null)) continue;
-    records.push({
-      bucketId:  String(row[cols.bucketId] || '').trim(),
-      name:      isMissing(row[cols.ownerName])      ? '' : String(row[cols.ownerName]).trim(),
-      parentage: isMissing(row[cols.identifierName]) ? '' : String(row[cols.identifierName]).trim(),
-      survey:    String(row[cols.surveyNumber] || '').trim(),
-      subSurvey: hasSubSurvey ? String(row[cols.subSurveyNumber] || '').trim() : '',
-    });
-  }
-  // Dedup by (name + parentage) case-sensitive, NULL falls back to BucketId
-  const groups = new Map();
-  for (const rec of records) {
-    const key = (!rec.name && !rec.parentage) ? 'BID::' + rec.bucketId : rec.name + '||' + rec.parentage;
-    if (!groups.has(key)) {
-      groups.set(key, { bucketId: rec.bucketId, name: rec.name, parentage: rec.parentage, surveyPairs: new Set(), rowCount: 0 });
-    }
-    const g = groups.get(key);
-    if (hasSubSurvey) {
-      // Raw AgriStack bucket file: SurveyNumber + SubSurveyNumber → survey/subSurvey pair
-      let sn = rec.survey;
-      if (rec.subSurvey && rec.subSurvey !== '*' && rec.subSurvey !== '') sn = `${rec.survey}/${rec.subSurvey}`;
-      if (sn) g.surveyPairs.add(sn);
-    } else {
-      // Verification-file re-upload: Survey Nos is already a comma-separated merged list
-      const parts = rec.survey.split(/[,;]\s*/).map(s => s.trim()).filter(Boolean);
-      for (const s of parts) g.surveyPairs.add(s);
-    }
-    g.rowCount++;
-  }
-  const persons = [];
-  let idx = 0;
-  for (const g of groups.values()) {
-    idx++;
-    persons.push({
-      id: `p${idx}`,
-      bucketId: g.bucketId,
-      name: g.name,
-      parentage: g.parentage,
-      surveys: [...g.surveyPairs].sort((a,b) => (parseFloat(a.split('/')[0])||0) - (parseFloat(b.split('/')[0])||0)),
-      rowCount: g.rowCount,
-      deleted: false,
-    });
-  }
-  return {
-    key: `${tehsil}__${village}`, tehsil, village, fileName: file.name,
-    format: 'bucket',
-    persons, nonHumanGroups: [], similarGroups: [],
-  };
+function check(){
+  if(!$('#village').value.trim()){ $('#village').focus(); return false; }
+  if(!$('#tehsil').value){ $('#tehsil').focus(); alert('Choose the tehsil'); return false; }
+  if(!/^[A-Za-z0-9._-]{3,30}$/.test($('#user').value.trim())){ $('#user').focus(); alert('Username: 3–30 letters, numbers, dot, dash or underscore'); return false; }
+  if($('#pass').value.trim().length<6){ $('#pass').focus(); alert('Password: at least 6 characters'); return false; }
+  if(!$('#url').value.trim()){ $('#url').focus(); alert('Paste the Apps Script URL of the portal'); return false; }
+  return true;
 }
-
-// ---------- Aadhaar Collection format: each row is already one person (per khasra), no dedup pass ----------
-function processAadhaarFile(fileEntry, rawRows, fmt) {
-  const { file, tehsil, village } = fileEntry;
-  const cols = fmt.cols;
-  const persons = [];
-  let idx = 0;
-  for (let r = fmt.headerRow + 1; r < rawRows.length; r++) {
-    const row = rawRows[r];
-    if (!row || row.every(c => c === '' || c === null)) continue;
-    // Skip a stray footer row that repeats the header
-    const nameCell = String(row[cols.name] || '').trim();
-    if (nameCell.toLowerCase() === 'name') continue;
-    idx++;
-    persons.push({
-      id: `p${idx}`,
-      name: nameCell,
-      parentage: String(row[cols.parentage] || '').trim(),
-      khewat:    row[cols.khewat] != null ? String(row[cols.khewat]).trim() : '',
-      khata:     row[cols.khata]  != null ? String(row[cols.khata]).trim()  : '',
-      khasra:    row[cols.khasra] != null ? String(row[cols.khasra]).trim() : '',
-      type:      String(row[cols.type]   || '').trim(),
-      status:    String(row[cols.status] || '').trim(),
-      reason:    String(row[cols.reason] || '').trim(),
-      deleted: false,
-    });
-  }
-  return {
-    key: `${tehsil}__${village}`, tehsil, village, fileName: file.name,
-    format: 'aadhaar',
-    persons, nonHumanGroups: [], similarGroups: [],
-  };
-}
-
-/* ============================================================
-   CLUSTER: non-human + fuzzy similar
-   ============================================================ */
-function buildGroups(village, opts) {
-  const { doNonHuman, doFuzzy, threshold } = opts;
-
-  // 1) Non-human detection
-  const nhBuckets = new Map();
-  if (doNonHuman) {
-    for (const p of village.persons) {
-      const hit = detectNonHuman(p.name, p.parentage);
-      if (hit) {
-        if (!nhBuckets.has(hit.key)) nhBuckets.set(hit.key, { key: hit.key, label: hit.label, members: [] });
-        nhBuckets.get(hit.key).members.push(p);
-        p.nonHumanKey = hit.key;
-      }
-    }
-  }
-  village.nonHumanGroups = [...nhBuckets.values()].sort((a,b)=>b.members.length - a.members.length);
-
-  // 2) Fuzzy similar clustering (skip persons already flagged as non-human)
-  const similarGroups = [];
-  if (doFuzzy) {
-    const eligible = village.persons
-      .filter(p => !p.nonHumanKey)
-      .map(p => ({ p, nName: normalize(p.name), nPar: normalize(p.parentage) }))
-      .filter(x => x.nName || x.nPar);  // skip totally empty
-
-    // Union-Find
-    const parent = new Map();
-    eligible.forEach(x => parent.set(x.p.id, x.p.id));
-    function find(a) { while (parent.get(a) !== a) { parent.set(a, parent.get(parent.get(a))); a = parent.get(a); } return a; }
-    function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); }
-
-    // Full pairwise comparison — no blocking, so cross-first-letter matches like
-    // "raham" vs "abdul raham" or "lone" prefix variants aren't missed
-    for (let i = 0; i < eligible.length; i++) {
-      for (let j = i + 1; j < eligible.length; j++) {
-        const a = eligible[i], b = eligible[j];
-        const nameSim = tokenSim(a.nName, b.nName);
-        if (nameSim < threshold) continue;
-        // parentage: if one side empty, only pair when names are near-perfect
-        if (!a.nPar || !b.nPar) {
-          if (nameSim < 0.97) continue;
-        } else {
-          const parSim = tokenSim(a.nPar, b.nPar);
-          if (parSim < threshold) continue;
-        }
-        union(a.p.id, b.p.id);
-      }
-    }
-    const clusters = new Map();
-    for (const x of eligible) {
-      const root = find(x.p.id);
-      if (!clusters.has(root)) clusters.set(root, []);
-      clusters.get(root).push(x);
-    }
-    for (const members of clusters.values()) {
-      if (members.length > 1) {
-        // representative = first member; compute pairwise sim vs rep for each member
-        const rep = members[0];
-        for (const x of members) {
-          x.p.simToRep = {
-            name: tokenSim(rep.nName, x.nName),
-            par:  tokenSim(rep.nPar, x.nPar),
-          };
-        }
-        similarGroups.push({ members: members.map(x => x.p) });
-      }
-    }
-    // sort largest groups first
-    similarGroups.sort((a,b)=> b.members.length - a.members.length);
-  }
-  village.similarGroups = similarGroups;
-}
-
-/* ============================================================
-   UI: FILE CONFIG LIST
-   ============================================================ */
-document.getElementById('file-input').addEventListener('change', e => {
-  const files = [...e.target.files];
-  STATE.files = files.map(f => ({
-    file: f,
-    tehsil: TEHSILS[0],
-    village: f.name.replace(/\.(xlsx|xls)$/i, '').toUpperCase(),
-  }));
-  renderFileConfigs();
-  document.getElementById('settings-card').style.display = STATE.files.length ? 'block' : 'none';
+$('#dl').addEventListener('click',async()=>{
+  if(!check()) return;
+  if(typeof JSZip==='undefined'){ alert('The ZIP maker could not load. Check the internet connection and reload.'); return; }
+  const b=base(), zip=new JSZip();
+  zip.file(b+'.html',buildPage()); zip.file(b+'_sheet.xlsx',buildExcel()); zip.file(b+'_READ_ME.txt',readMe());
+  const blob=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=b+'_farmer_id.zip'; a.click();
 });
-
-function renderFileConfigs() {
-  const box = document.getElementById('file-configs');
-  box.innerHTML = '';
-  STATE.files.forEach((f, i) => {
-    const div = document.createElement('div');
-    div.className = 'file-config';
-    div.innerHTML = `
-      <div><strong>${escapeHtml(f.file.name)}</strong></div>
-      <div class="row">
-        <label>Tehsil:</label>
-        <select data-i="${i}" data-k="tehsil">
-          ${TEHSILS.map(t => `<option ${t === f.tehsil ? 'selected' : ''}>${t}</option>`).join('')}
-        </select>
-        <label>Village:</label>
-        <input type="text" data-i="${i}" data-k="village" value="${escapeHtml(f.village)}" style="width:220px;">
-        <label>District:</label>
-        <input type="text" value="Bandipora" disabled style="width:120px;">
-      </div>
-    `;
-    box.appendChild(div);
-  });
-  box.querySelectorAll('select, input[type=text]').forEach(el => {
-    el.addEventListener('change', evt => {
-      const i = +evt.target.dataset.i, k = evt.target.dataset.k;
-      STATE.files[i][k] = evt.target.value;
-    });
-  });
-}
-
-/* ============================================================
-   PROCESS BUTTON
-   ============================================================ */
-// Slider 0-10 → threshold. 0 = disable fuzzy grouping entirely.
-// Higher slider position = more tolerant.
-function sliderToThreshold(v) {
-  const map = { 1:1.00, 2:0.95, 3:0.90, 4:0.85, 5:0.80, 6:0.75, 7:0.70, 8:0.65, 9:0.60, 10:0.55 };
-  return map[v] ?? null;  // null = off
-}
-function sliderLabel(v) {
-  const t = sliderToThreshold(v);
-  if (t === null) return `<strong>0</strong> (off)`;
-  return `<strong>${v}</strong> (threshold ${t.toFixed(2)})`;
-}
-document.getElementById('fuzzy-slider').addEventListener('input', e => {
-  document.getElementById('fuzzy-slider-val').innerHTML = sliderLabel(+e.target.value);
-});
-
-document.getElementById('process-btn').addEventListener('click', async () => {
-  const log = document.getElementById('status-log');
-  log.style.display = 'block';
-  log.textContent = '';
-  const logLine = m => { log.textContent += m + '\n'; log.scrollTop = log.scrollHeight; };
-
-  const sliderVal = +document.getElementById('fuzzy-slider').value;
-  const threshold = sliderToThreshold(sliderVal);
-  const doNonHuman = document.getElementById('detect-nonhuman').checked;
-  const doFuzzy = document.getElementById('cluster-fuzzy').checked && threshold !== null;
-  logLine(`Slider: ${sliderVal}${threshold === null ? ' (fuzzy OFF)' : ` → threshold ${threshold}`}`);
-
-  STATE.villages = [];
-  for (const fEntry of STATE.files) {
-    logLine(`Reading ${fEntry.file.name}...`);
-    try {
-      const rows = await readXlsx(fEntry.file);
-      const v = processVillage(fEntry, rows);
-      if (!v) { logLine(`  → empty file, skipped.`); continue; }
-      buildGroups(v, { doNonHuman, doFuzzy, threshold });
-      STATE.villages.push(v);
-      logLine(`  → format=${v.format}; ${v.persons.length} rows; ${v.nonHumanGroups.length} non-human groups; ${v.similarGroups.length} fuzzy clusters.`);
-    } catch (err) {
-      logLine(`  → ERROR: ${err.message}`);
-      console.error(err);
-    }
-  }
-
-  if (!STATE.villages.length) { logLine('No villages processed.'); return; }
-  STATE.activeTab = 0;
-  renderTabs();
-  renderActiveTab();
-  document.getElementById('review-section').style.display = 'block';
-  document.getElementById('download-section').style.display = 'block';
-  logLine('Done.');
-});
-
-document.getElementById('reset-btn').addEventListener('click', () => {
-  document.getElementById('file-input').value = '';
-  STATE.files = []; STATE.villages = []; STATE.activeTab = 0;
-  document.getElementById('file-configs').innerHTML = '';
-  document.getElementById('settings-card').style.display = 'none';
-  document.getElementById('review-section').style.display = 'none';
-  document.getElementById('download-section').style.display = 'none';
-  document.getElementById('status-log').style.display = 'none';
-});
-
-/* ============================================================
-   UI: TABS + REVIEW
-   ============================================================ */
-function renderTabs() {
-  const bar = document.getElementById('tab-bar');
-  bar.innerHTML = '';
-  STATE.villages.forEach((v, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'tab-btn' + (i === STATE.activeTab ? ' active' : '');
-    btn.textContent = `${v.village} (${v.persons.filter(p=>!p.deleted).length})`;
-    btn.addEventListener('click', () => { STATE.activeTab = i; renderTabs(); renderActiveTab(); });
-    bar.appendChild(btn);
-  });
-}
-
-function renderActiveTab() {
-  const box = document.getElementById('tab-content');
-  const v = STATE.villages[STATE.activeTab];
-  if (!v) { box.innerHTML = ''; return; }
-
-  const alive = v.persons.filter(p => !p.deleted);
-  const nhAlive = v.nonHumanGroups.map(g => ({ ...g, members: g.members.filter(m => !m.deleted) })).filter(g => g.members.length);
-  const simAlive = v.similarGroups.map(g => ({ ...g, members: g.members.filter(m => !m.deleted) })).filter(g => g.members.length > 1);
-
-  let html = `
-    <div class="stats">
-      <span class="stat-pill">Village: <strong>${escapeHtml(v.village)}</strong></span>
-      <span class="stat-pill">Tehsil: <strong>${escapeHtml(v.tehsil)}</strong></span>
-      <span class="stat-pill">Alive: <strong>${alive.length}</strong> / ${v.persons.length}</span>
-      <span class="stat-pill">Non-human groups: <strong>${nhAlive.length}</strong></span>
-      <span class="stat-pill">Fuzzy clusters: <strong>${simAlive.length}</strong></span>
-    </div>
-  `;
-
-  // ---- Non-human section ----
-  if (nhAlive.length) {
-    html += `<div class="section-header"><h3>⚠️ Non-Human Entries (${nhAlive.reduce((a,g)=>a+g.members.length,0)} rows across ${nhAlive.length} groups)</h3>
-      <button class="danger small" onclick="deleteAllNonHuman()">Delete All Non-Human</button></div>`;
-    for (const g of nhAlive) {
-      html += renderGroupCard(g, 'nonhuman', v);
-    }
-  }
-
-  // ---- Similar section ----
-  if (simAlive.length) {
-    html += `<div class="section-header"><h3>👥 Similar Name Groups (${simAlive.length})</h3>
-      <span class="small-muted">Merges surveys from checked rows into the first unchecked row of each group on Apply.</span></div>`;
-    for (const g of simAlive) {
-      html += renderGroupCard(g, 'similar', v);
-    }
-  }
-
-  if (nhAlive.length + simAlive.length > 0) {
-    html += `<div class="master-actions">
-      <button class="danger" onclick="applyDeletions()">Apply Checked Deletions</button>
-      <button class="secondary" onclick="clearAllChecks()">Clear All Checks</button>
-      <button class="secondary" onclick="undoDeletions()">Undo All Deletions</button>
-    </div>`;
-  }
-
-  // ---- Full list ----
-  html += `<div class="section-header"><h3>All persons in ${escapeHtml(v.village)}</h3>
-    <span class="small-muted">Struck-through = deleted. Shown for reference; only surviving rows go into downloads.</span></div>`;
-  html += renderFullTable(v);
-
-  box.innerHTML = html;
-}
-
-function renderGroupCard(g, kind, v) {
-  const label = kind === 'nonhuman' ? g.label : `Cluster of ${g.members.length}`;
-  const btnDeleteAll = kind === 'nonhuman'
-    ? `<button class="danger small" onclick="event.stopPropagation(); checkAllInGroup('${kind}','${g.key||g.members[0].id}')">Check all</button>`
-    : `<button class="secondary small" onclick="event.stopPropagation(); checkAllButFirst('${kind}','${g.members[0].id}')">Check all but first</button>`;
-  const showScore = kind === 'similar';
-  const isAadhaar = v.format === 'aadhaar';
-
-  // Column headers depend on format
-  const headerCells = isAadhaar
-    ? '<th>Del</th><th>Khewat</th><th>Khata</th><th>Khasra</th><th>Name</th><th>Parentage</th><th>Type</th>'
-    : '<th>Del</th><th>Bucket ID</th><th>Name</th><th>Parentage</th><th>Survey Nos</th><th>#Rows</th>';
-  const scoreHeader = showScore ? '<th>Sim (name/par)</th>' : '';
-
-  const rows = g.members.map((p, idx) => {
-    const scoreCell = showScore
-      ? (idx === 0
-          ? '<td class="small-muted">— (rep)</td>'
-          : `<td class="nowrap">${(p.simToRep?.name ?? 0).toFixed(2)} / ${(p.simToRep?.par ?? 0).toFixed(2)}</td>`)
-      : '';
-    const dataCells = isAadhaar
-      ? `<td class="nowrap">${escapeHtml(p.khewat)}</td>
-         <td class="nowrap">${escapeHtml(p.khata)}</td>
-         <td class="nowrap">${escapeHtml(p.khasra)}</td>
-         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
-         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
-         <td class="nowrap">${escapeHtml(p.type)}</td>`
-      : `<td class="nowrap">${escapeHtml(p.bucketId)}</td>
-         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
-         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
-         <td>${escapeHtml((p.surveys||[]).join(', '))}</td>
-         <td class="nowrap">${p.rowCount}</td>`;
-    return `
-    <tr class="${kind === 'nonhuman' ? 'nonhuman-row' : 'dup-row'}">
-      <td class="checkbox-cell"><input type="checkbox" class="del-check" data-id="${p.id}"></td>
-      ${dataCells}
-      ${scoreCell}
-    </tr>`;
-  }).join('');
-  return `
-    <div class="group-card">
-      <div class="group-header ${kind}" onclick="toggleGroup(this)">
-        <div><strong>${escapeHtml(label)}</strong> <span class="small-muted">— ${g.members.length} rows</span></div>
-        <div class="actions">${btnDeleteAll}</div>
-      </div>
-      <div class="group-body">
-        <table>
-          <thead><tr>${headerCells}${scoreHeader}</tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function renderFullTable(v) {
-  const alive = v.persons;
-  const isAadhaar = v.format === 'aadhaar';
-  const headerCells = isAadhaar
-    ? '<th>S.No.</th><th>Khewat</th><th>Khata</th><th>Khasra</th><th>Name</th><th>Parentage</th><th>Type</th><th>Flag</th>'
-    : '<th>S.No.</th><th>Bucket ID</th><th>Name</th><th>Parentage</th><th>Survey Nos</th><th>#Rows</th><th>Flag</th>';
-  let html = `<table><thead><tr>${headerCells}</tr></thead><tbody>`;
-  let sn = 0;
-  for (const p of alive) {
-    if (!p.deleted) sn++;
-    const flag = p.nonHumanKey ? '⚠️ Non-human' : '';
-    const dataCells = isAadhaar
-      ? `<td class="nowrap">${escapeHtml(p.khewat)}</td>
-         <td class="nowrap">${escapeHtml(p.khata)}</td>
-         <td class="nowrap">${escapeHtml(p.khasra)}</td>
-         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
-         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
-         <td class="nowrap">${escapeHtml(p.type)}</td>`
-      : `<td>${escapeHtml(p.bucketId)}</td>
-         <td>${escapeHtml(p.name) || '<em>(blank)</em>'}</td>
-         <td>${escapeHtml(p.parentage) || '<em>(blank)</em>'}</td>
-         <td>${escapeHtml((p.surveys||[]).join(', '))}</td>
-         <td>${p.rowCount}</td>`;
-    html += `<tr class="${p.deleted ? 'deleted-row' : ''}">
-      <td>${p.deleted ? '—' : sn}</td>
-      ${dataCells}
-      <td>${flag}</td>
-    </tr>`;
-  }
-  html += `</tbody></table>`;
-  return html;
-}
-
-/* ============================================================
-   GROUP ACTIONS (called from onclick handlers)
-   ============================================================ */
-window.toggleGroup = function(hdr) {
-  const body = hdr.nextElementSibling;
-  body.classList.toggle('collapsed');
-};
-
-window.checkAllInGroup = function(kind, keyOrId) {
-  const v = STATE.villages[STATE.activeTab];
-  const groups = kind === 'nonhuman' ? v.nonHumanGroups : v.similarGroups;
-  const g = groups.find(x => (x.key || x.members[0].id) === keyOrId);
-  if (!g) return;
-  const ids = new Set(g.members.map(m => m.id));
-  document.querySelectorAll('.del-check').forEach(cb => {
-    if (ids.has(cb.dataset.id)) cb.checked = true;
-  });
-};
-
-window.checkAllButFirst = function(kind, firstId) {
-  const v = STATE.villages[STATE.activeTab];
-  const g = v.similarGroups.find(x => x.members[0].id === firstId);
-  if (!g) return;
-  const ids = new Set(g.members.slice(1).map(m => m.id));
-  document.querySelectorAll('.del-check').forEach(cb => {
-    if (ids.has(cb.dataset.id)) cb.checked = true;
-    else if (cb.dataset.id === firstId) cb.checked = false;
-  });
-};
-
-window.deleteAllNonHuman = function() {
-  const v = STATE.villages[STATE.activeTab];
-  const ids = new Set();
-  v.nonHumanGroups.forEach(g => g.members.forEach(m => { if (!m.deleted) ids.add(m.id); }));
-  if (!ids.size) return;
-  if (!confirm(`Delete all ${ids.size} non-human rows in ${v.village}?`)) return;
-  for (const p of v.persons) if (ids.has(p.id)) p.deleted = true;
-  renderTabs(); renderActiveTab();
-};
-
-window.applyDeletions = function() {
-  const v = STATE.villages[STATE.activeTab];
-  const checkedIds = new Set([...document.querySelectorAll('.del-check:checked')].map(cb => cb.dataset.id));
-  if (!checkedIds.size) { alert('Nothing checked.'); return; }
-
-  // Bucket format only: merge surveys + rowCount from checked → first surviving row of cluster.
-  // Aadhaar format: each row is one khasra, no aggregation; just delete.
-  if (v.format === 'bucket') {
-    for (const g of v.similarGroups) {
-      const aliveMembers = g.members.filter(m => !m.deleted);
-      const checked = aliveMembers.filter(m => checkedIds.has(m.id));
-      const kept    = aliveMembers.filter(m => !checkedIds.has(m.id));
-      if (!checked.length || !kept.length) continue;
-      const survivor = kept[0];
-      const mergedSet = new Set(survivor.surveys);
-      for (const c of checked) c.surveys.forEach(s => mergedSet.add(s));
-      survivor.surveys = [...mergedSet].sort((a,b)=>{
-        const na = parseFloat(a.split('/')[0]) || 0;
-        const nb = parseFloat(b.split('/')[0]) || 0;
-        return na - nb;
-      });
-      survivor.rowCount += checked.reduce((s,m)=>s+m.rowCount, 0);
-    }
-  }
-
-  for (const p of v.persons) if (checkedIds.has(p.id)) p.deleted = true;
-  renderTabs(); renderActiveTab();
-};
-
-window.clearAllChecks = function() {
-  document.querySelectorAll('.del-check').forEach(cb => cb.checked = false);
-};
-
-window.undoDeletions = function() {
-  const v = STATE.villages[STATE.activeTab];
-  v.persons.forEach(p => p.deleted = false);
-  renderTabs(); renderActiveTab();
-};
-
-/* ============================================================
-   DOWNLOADS
-   ============================================================ */
-document.getElementById('dl-current-xlsx').addEventListener('click', async () => {
-  const v = STATE.villages[STATE.activeTab];
-  const blob = await buildExcelBlob(v);
-  saveAs(blob, `Verification_${v.village}.xlsx`);
-});
-
-document.getElementById('dl-current-pdf').addEventListener('click', () => {
-  const v = STATE.villages[STATE.activeTab];
-  const blob = buildPdfBlob(v);
-  saveAs(blob, `Verification_${v.village}.pdf`);
-});
-
-document.getElementById('dl-all-zip').addEventListener('click', async () => {
-  const zip = new JSZip();
-  for (const v of STATE.villages) {
-    const xlsx = await buildExcelBlob(v);
-    const pdf  = buildPdfBlob(v);
-    zip.file(`Verification_${v.village}.xlsx`, xlsx);
-    zip.file(`Verification_${v.village}.pdf`, pdf);
-  }
-  const out = await zip.generateAsync({ type: 'blob' });
-  saveAs(out, `Verification_all_villages.zip`);
-});
-
-async function buildExcelBlob(v) {
-  const alive = v.persons.filter(p => !p.deleted);
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Verification');
-  const listSheet = wb.addWorksheet('_lists');
-  listSheet.state = 'hidden';
-  listSheet.getCell('A1').value = 'Issued';
-  listSheet.getCell('A2').value = 'Pending';
-  wb.definedNames.add(`_lists!$A$1:$A$2`, 'StatusList');
-
-  // Cluster info: mirrors what the HTML review shows so the Excel is the same document.
-  const clusterInfo = new Map();
-  v.similarGroups.forEach((g, i) => {
-    const label = `CL-${String(i + 1).padStart(2, '0')}`;
-    const liveMembers = g.members.filter(m => !m.deleted);
-    liveMembers.forEach((m, j) => {
-      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 1 });
-    });
-  });
-  v.nonHumanGroups.forEach((g, i) => {
-    const label = `NH-${g.key}`;
-    const liveMembers = g.members.filter(m => !m.deleted);
-    liveMembers.forEach((m, j) => {
-      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 2 });
-    });
-  });
-
-  // Sort: similar clusters (grouped, in order), then non-human groups, then singletons in original order.
-  const originalIdx = new Map();
-  v.persons.forEach((p, idx) => originalIdx.set(p.id, idx));
-  const sorted = [...alive].sort((a, b) => {
-    const ia = clusterInfo.get(a.id);
-    const ib = clusterInfo.get(b.id);
-    if (!ia && !ib) return originalIdx.get(a.id) - originalIdx.get(b.id);
-    if (!ia) return 1;
-    if (!ib) return -1;
-    if (ia.section !== ib.section) return ia.section - ib.section;
-    if (ia.clusterOrder !== ib.clusterOrder) return ia.clusterOrder - ib.clusterOrder;
-    return ia.memberOrder - ib.memberOrder;
-  });
-
-  // Colour palette mirrors the HTML review UI (--dup-bg / --warn-bg).
-  const SIMILAR_COLORS = ['FEF3F2', 'FBE0DD']; // alternating pinks so adjacent clusters don't blur
-  const NONHUMAN_COLOR = 'FFF8E1';              // warm yellow
-  function fillFor(personId) {
-    const info = clusterInfo.get(personId);
-    if (!info) return null;
-    if (info.section === 2) return NONHUMAN_COLOR;
-    return SIMILAR_COLORS[info.clusterOrder % SIMILAR_COLORS.length];
-  }
-  function labelFor(personId) {
-    return clusterInfo.get(personId)?.label || '';
-  }
-
-  if (v.format === 'aadhaar') {
-    // 10-col Aadhaar structure (added CLUSTER as col B)
-    ws.mergeCells('A1:J1');
-    const hdr = ws.getCell('A1');
-    hdr.value = `AGRISTACK — AADHAAR SEEDING (POST-PRUNE)  |  Village: ${v.village}  |  Tehsil: ${v.tehsil}  |  District: Bandipora`;
-    hdr.font = { bold: true, size: 12 };
-    hdr.alignment = { horizontal: 'center' };
-    ws.getRow(1).height = 22;
-
-    ws.getRow(2).values = ['S.NO.','CLUSTER','KHEWAT','KHATA','KHASRA','NAME','PARENTAGE','TYPE','STATUS','REASON'];
-    ws.getRow(2).font = { bold: true };
-    ws.getRow(2).alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(2).height = 24;
-
-    ws.columns = [
-      { width: 6 },   // S.No.
-      { width: 10 },  // Cluster
-      { width: 8 },   // Khewat
-      { width: 8 },   // Khata
-      { width: 14 },  // Khasra
-      { width: 24 },  // Name
-      { width: 26 },  // Parentage
-      { width: 12 },  // Type
-      { width: 10 },  // Status
-      { width: 25 },  // Reason
-    ];
-
-    sorted.forEach((p, i) => {
-      const row = ws.addRow([i + 1, labelFor(p.id), p.khewat, p.khata, p.khasra, p.name, p.parentage, p.type, p.status || '', p.reason || '']);
-      row.alignment = { vertical: 'top', wrapText: true };
-      const fill = fillFor(p.id);
-      if (fill) {
-        row.eachCell({ includeEmpty: true }, cell => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
-        });
-      }
-    });
-
-    const lastRow = 2 + sorted.length;
-    for (let r = 3; r <= lastRow; r++) {
-      ws.getCell(`I${r}`).dataValidation = {
-        type: 'list', allowBlank: true, formulae: ['=StatusList'],
-        showErrorMessage: true, errorStyle: 'warning',
-        errorTitle: 'Invalid', error: 'Choose Issued or Pending'
-      };
-    }
-    for (let r = 2; r <= lastRow; r++) {
-      for (let c = 1; c <= 10; c++) {
-        ws.getCell(r, c).border = {
-          top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}
-        };
-      }
-    }
-    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: 10 } };
-    ws.views = [{ state: 'frozen', ySplit: 2 }];
-    ws.pageSetup = {
-      orientation: 'landscape', paperSize: 9,
-      fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-      margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 },
-      printTitlesRow: '1:2',
-    };
-  } else {
-    // Bucket 9-col structure (added Cluster as col B)
-    ws.mergeCells('A1:I1');
-    const hdr = ws.getCell('A1');
-    hdr.value = `District: Bandipora  |  Tehsil: ${v.tehsil}  |  Village: ${v.village}`;
-    hdr.font = { bold: true, size: 12 };
-    hdr.alignment = { horizontal: 'center' };
-    ws.getRow(1).height = 22;
-
-    ws.getRow(2).values = ['S.No.','Cluster','Bucket ID','Name','Parentage','Survey Nos','#Rows','Status','Reason for Pendency'];
-    ws.getRow(2).font = { bold: true };
-    ws.getRow(2).alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(2).height = 24;
-
-    ws.columns = [
-      { width: 6 }, { width: 10 }, { width: 14 }, { width: 22 }, { width: 22 },
-      { width: 26 }, { width: 8 }, { width: 10 }, { width: 25 },
-    ];
-
-    sorted.forEach((p, i) => {
-      const row = ws.addRow([i + 1, labelFor(p.id), p.bucketId, p.name, p.parentage, (p.surveys||[]).join(', '), p.rowCount, '', '']);
-      row.alignment = { vertical: 'top', wrapText: true };
-      const fill = fillFor(p.id);
-      if (fill) {
-        row.eachCell({ includeEmpty: true }, cell => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
-        });
-      }
-    });
-
-    const lastRow = 2 + sorted.length;
-    for (let r = 3; r <= lastRow; r++) {
-      ws.getCell(`H${r}`).dataValidation = {
-        type: 'list', allowBlank: true, formulae: ['=StatusList'],
-        showErrorMessage: true, errorStyle: 'warning',
-        errorTitle: 'Invalid', error: 'Choose Issued or Pending'
-      };
-    }
-    for (let r = 2; r <= lastRow; r++) {
-      for (let c = 1; c <= 9; c++) {
-        ws.getCell(r, c).border = {
-          top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}
-        };
-      }
-    }
-    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: 9 } };
-    ws.views = [{ state: 'frozen', ySplit: 2 }];
-    ws.pageSetup = {
-      orientation: 'landscape', paperSize: 9,
-      fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-      margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 },
-      printTitlesRow: '1:2',
-    };
-  }
-
-  const buf = await wb.xlsx.writeBuffer();
-  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-}
-
-function buildPdfBlob(v) {
-  const alive = v.persons.filter(p => !p.deleted);
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  // Same cluster sort + colour logic as the Excel, so both downloads match the HTML view.
-  const clusterInfo = new Map();
-  v.similarGroups.forEach((g, i) => {
-    const label = `CL-${String(i + 1).padStart(2, '0')}`;
-    const liveMembers = g.members.filter(m => !m.deleted);
-    liveMembers.forEach((m, j) => {
-      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 1 });
-    });
-  });
-  v.nonHumanGroups.forEach((g, i) => {
-    const label = `NH-${g.key}`;
-    const liveMembers = g.members.filter(m => !m.deleted);
-    liveMembers.forEach((m, j) => {
-      clusterInfo.set(m.id, { label, clusterOrder: i, memberOrder: j, section: 2 });
-    });
-  });
-  const originalIdx = new Map();
-  v.persons.forEach((p, idx) => originalIdx.set(p.id, idx));
-  const sorted = [...alive].sort((a, b) => {
-    const ia = clusterInfo.get(a.id);
-    const ib = clusterInfo.get(b.id);
-    if (!ia && !ib) return originalIdx.get(a.id) - originalIdx.get(b.id);
-    if (!ia) return 1;
-    if (!ib) return -1;
-    if (ia.section !== ib.section) return ia.section - ib.section;
-    if (ia.clusterOrder !== ib.clusterOrder) return ia.clusterOrder - ib.clusterOrder;
-    return ia.memberOrder - ib.memberOrder;
-  });
-
-  const SIMILAR_COLORS = [[254, 243, 242], [251, 224, 221]];
-  const NONHUMAN_COLOR = [255, 248, 225];
-  function fillFor(personId) {
-    const info = clusterInfo.get(personId);
-    if (!info) return null;
-    if (info.section === 2) return NONHUMAN_COLOR;
-    return SIMILAR_COLORS[info.clusterOrder % SIMILAR_COLORS.length];
-  }
-  function labelFor(personId) {
-    return clusterInfo.get(personId)?.label || '';
-  }
-
-  const isAadhaar = v.format === 'aadhaar';
-  const head = isAadhaar
-    ? [['S.No.','Cluster','Khewat','Khata','Khasra','Name','Parentage','Type','Status','Reason']]
-    : [['S.No.','Cluster','Bucket ID','Name','Parentage','Survey Nos','#Rows','Status','Reason for Pendency']];
-  const body = isAadhaar
-    ? sorted.map((p, i) => [i + 1, labelFor(p.id), p.khewat, p.khata, p.khasra, p.name || '', p.parentage || '', p.type, p.status || '', p.reason || ''])
-    : sorted.map((p, i) => [i + 1, labelFor(p.id), p.bucketId, p.name || '', p.parentage || '', (p.surveys||[]).join(', '), p.rowCount, '', '']);
-  const columnStyles = isAadhaar
-    ? {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 14 },
-        2: { cellWidth: 12 },
-        3: { cellWidth: 12 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 38 },
-        6: { cellWidth: 42 },
-        7: { cellWidth: 16 },
-        8: { cellWidth: 18 },
-        9: { cellWidth: 40 },
-      }
-    : {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 16 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 38 },
-        4: { cellWidth: 38 },
-        5: { cellWidth: 46 },
-        6: { cellWidth: 14, halign: 'center' },
-        7: { cellWidth: 20 },
-        8: { cellWidth: 56 },
-      };
-  const title = isAadhaar
-    ? `AGRISTACK — AADHAAR SEEDING (POST-PRUNE)  |  Village: ${v.village}  |  Tehsil: ${v.tehsil}  |  District: Bandipora`
-    : `District: Bandipora  |  Tehsil: ${v.tehsil}  |  Village: ${v.village}`;
-
-  doc.autoTable({
-    head, body, startY: 22, theme: 'grid',
-    headStyles: { fillColor: [238,242,247], textColor: 20, fontStyle: 'bold', halign: 'center' },
-    styles: { fontSize: 8, cellPadding: 2, valign: 'top', minCellHeight: 8 },
-    columnStyles,
-    didParseCell: function(data) {
-      if (data.section === 'body') {
-        const p = sorted[data.row.index];
-        if (p) {
-          const fill = fillFor(p.id);
-          if (fill) data.cell.styles.fillColor = fill;
-        }
-      }
-    },
-    didDrawPage: () => {
-      doc.setFontSize(11); doc.setFont(undefined, 'bold');
-      doc.text(title, 148, 14, { align: 'center' });
-      doc.setFontSize(9); doc.setFont(undefined, 'normal');
-      doc.text('Verification Sheet — Landholder Aadhaar Seeding', 148, 19, { align: 'center' });
-    },
-    margin: { top: 22, left: 8, right: 8, bottom: 12 },
-  });
-
-  const pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.text(`Page ${i} of ${pageCount}`, 290, 205, { align: 'right' });
-  }
-
-  return doc.output('blob');
-}
-
-/* ============================================================
-   UTIL
-   ============================================================ */
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+$('#pv').addEventListener('click',()=>{ const w=window.open(URL.createObjectURL(new Blob([buildPage()],{type:'text/html'})),'_blank'); if(!w) alert('Allow pop-ups to preview.'); });
 </script>
 </body>
 </html>
